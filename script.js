@@ -1,13 +1,16 @@
 class SeatAssignment {
     constructor() {
+        // 기본 설정
         this.totalRows = 10;
         this.totalCols = 4;
         this.selectedGender = null;
         this.maleAssignments = new Set();
         this.femaleAssignments = new Set();
-        this.userSeat = this.loadUserSeat();
         this.userId = this.generateOrGetUserId();
+        this.userSeat = this.loadUserSeat();
+        this.adminPassword = 'love1030'; // 관리자 비밀번호 중앙 관리
 
+        // 초기화 및 설정
         this.initializeElements();
         this.initializeEventListeners();
         this.createSeatGrid();
@@ -90,14 +93,10 @@ class SeatAssignment {
         return null;
     }
 
+    // 좌석 할당 기능
     async assignSeat() {
-        if (this.userSeat) {
-            alert('이미 좌석이 배정되어 있습니다.');
-            return;
-        }
-
-        if (!this.selectedGender) {
-            alert('성별을 선택해주세요.');
+        // 유효성 검사
+        if (!this.validateSeatAssignment()) {
             return;
         }
 
@@ -108,72 +107,89 @@ class SeatAssignment {
         }
 
         try {
-            console.log('좌석 할당 시도:', { seatNumber, gender: this.selectedGender, userId: this.userId });
+            console.log('📍 좌석 할당 시도:', { seatNumber, gender: this.selectedGender, userId: this.userId });
             
-            // 로컬 상태 먼저 업데이트
-            const assignments = this.selectedGender === 'male' ? this.maleAssignments : this.femaleAssignments;
-            assignments.add(seatNumber);
-
-            this.userSeat = { number: seatNumber, gender: this.selectedGender, userId: this.userId };
-            this.saveUserSeat();
-            this.updateSeatDisplay();
+            // 로컬 상태 업데이트
+            this.updateLocalSeatAssignment(seatNumber);
             
             // Supabase에 좌석 할당 정보 저장
-            const { data, error } = await supabase
-                .from('seats')
-                .insert([
-                    { 
-                        seat_number: seatNumber, 
-                        gender: this.selectedGender,
-                        user_id: this.userId
-                    }
-                ]);
-
-            if (error) {
-                console.error('좌석 저장 오류:', error);
-                // 오류가 발생해도 사용자 경험을 위해 로컬에는 유지
-                // 다음 시도에 자동 동기화 예정
-            }
+            await this.saveSeatToSupabase(seatNumber);
+            
         } catch (error) {
             console.error('좌석 할당 중 오류 발생:', error);
             // 오류가 발생해도 사용자가 좌석을 선택할 수 있도록 유지
             alert('서버 연결 오류가 발생했지만, 좌석은 임시로 할당되었습니다.');
         }
     }
-
-    updateSeatDisplay() {
-        if (!this.userSeat) return;
-
-        // 모든 좌석 표시 초기화
-        const seats = document.querySelectorAll('.seat');
-        seats.forEach(seat => {
-            seat.classList.remove('male', 'female');
-        });
-        
-        // 사용자 자신의 좌석만 표시
-        const seatIndex = this.userSeat.number - 1;
-        if (seats[seatIndex]) {
-            seats[seatIndex].classList.add(this.userSeat.gender);
+    
+    // 좌석 할당 유효성 검사
+    validateSeatAssignment() {
+        if (this.userSeat) {
+            alert('이미 좌석이 배정되어 있습니다.');
+            return false;
         }
-        this.seatNumberDisplay.textContent = `${this.userSeat.number}번입니다`;
+
+        if (!this.selectedGender) {
+            alert('성별을 선택해주세요.');
+            return false;
+        }
+        
+        return true;
     }
     
-    // 좌석 표시 업데이트 - 개인 좌석만 표시
-    updateAllSeatsDisplay() {
+    // 로컬 좌석 할당 정보 업데이트
+    updateLocalSeatAssignment(seatNumber) {
+        const assignments = this.selectedGender === 'male' ? this.maleAssignments : this.femaleAssignments;
+        assignments.add(seatNumber);
+
+        this.userSeat = { number: seatNumber, gender: this.selectedGender, userId: this.userId };
+        this.saveUserSeat();
+        this.updateSeatDisplay();
+    }
+    
+    // Supabase에 좌석 할당 정보 저장
+    async saveSeatToSupabase(seatNumber) {
+        const { error } = await supabase
+            .from('seats')
+            .insert([
+                { 
+                    seat_number: seatNumber, 
+                    gender: this.selectedGender,
+                    user_id: this.userId
+                }
+            ]);
+
+        if (error) {
+            console.error('좌석 저장 오류:', error);
+            // 오류가 발생해도 사용자 경험을 위해 로컬에는 유지
+            // 다음 시도에 자동 동기화 예정
+        }
+    }
+
+    // 좌석 표시 업데이트 - 사용자의 좌석만 표시
+    updateSeatDisplay() {
         // 모든 좌석 표시 초기화
-        const seats = document.querySelectorAll('.seat');
-        seats.forEach(seat => {
-            seat.classList.remove('male', 'female');
-        });
+        this.resetSeatDisplay();
         
         // 사용자 자신의 좌석만 표시
         if (this.userSeat) {
+            const seats = document.querySelectorAll('.seat');
             const seatIndex = this.userSeat.number - 1;
             if (seats[seatIndex]) {
                 seats[seatIndex].classList.add(this.userSeat.gender);
             }
             this.seatNumberDisplay.textContent = `${this.userSeat.number}번입니다`;
+        } else {
+            this.seatNumberDisplay.textContent = '좌석을 선택해주세요';
         }
+    }
+    
+    // 모든 좌석 표시 초기화
+    resetSeatDisplay() {
+        const seats = document.querySelectorAll('.seat');
+        seats.forEach(seat => {
+            seat.classList.remove('male', 'female');
+        });
     }
 
     saveUserSeat() {
@@ -199,26 +215,10 @@ class SeatAssignment {
             this.femaleAssignments.clear();
 
             // 데이터베이스에서 좌석 정보 로드
-            data.forEach(seat => {
-                if (seat.gender === 'male') {
-                    this.maleAssignments.add(seat.seat_number);
-                } else if (seat.gender === 'female') {
-                    this.femaleAssignments.add(seat.seat_number);
-                }
-                
-                // 현재 사용자의 좌석인지 확인
-                if (seat.user_id === this.userId) {
-                    this.userSeat = {
-                        number: seat.seat_number,
-                        gender: seat.gender,
-                        userId: seat.user_id
-                    };
-                    this.saveUserSeat();
-                }
-            });
+            this.processSeatsData(data);
             
-            // 모든 좌석 표시 업데이트
-            this.updateAllSeatsDisplay();
+            // 좌석 표시 업데이트
+            this.updateSeatDisplay();
             
             return data;
         } catch (error) {
@@ -227,18 +227,45 @@ class SeatAssignment {
         }
     }
     
+    // 서버에서 가져온 좌석 데이터 처리
+    processSeatsData(data) {
+        data.forEach(seat => {
+            if (seat.gender === 'male') {
+                this.maleAssignments.add(seat.seat_number);
+            } else if (seat.gender === 'female') {
+                this.femaleAssignments.add(seat.seat_number);
+            }
+            
+            // 현재 사용자의 좌석인지 확인
+            if (seat.user_id === this.userId) {
+                this.userSeat = {
+                    number: seat.seat_number,
+                    gender: seat.gender,
+                    userId: seat.user_id
+                };
+                this.saveUserSeat();
+            }
+        });
+    }
+    
     // 실시간 업데이트 리스너 설정
     setupRealtimeListener() {
+        // 서버에서 좌석 업데이트 이벤트 수신
         window.addEventListener('seatsUpdated', async (event) => {
-            console.log('좌석 업데이트 이벤트 수신:', event.detail);
+            console.log('💬 좌석 업데이트 이벤트 수신:', event.detail);
+            await this.loadSeatsFromSupabase();
+        });
+        
+        // 좌석 초기화 이벤트 수신
+        window.addEventListener('seatsReset', async () => {
+            console.log('🔄 좌석 초기화 이벤트 수신');
+            this.resetClientState();
             await this.loadSeatsFromSupabase();
         });
     }
 
     loadAndDisplayUserSeat() {
-        if (this.userSeat) {
-            this.updateSeatDisplay();
-        }
+        this.updateSeatDisplay();
     }
     
     // 개발자용 초기화 기능
@@ -256,7 +283,29 @@ class SeatAssignment {
         // 개발자 안내 메시지
         console.info('💻 개발자 도구: ');
         console.info(' - 내 좌석 초기화: resetSeatSystem()');
-        console.info(' - 모든 사용자 좌석 초기화(관리자): resetAllSeatsForEveryone("love1030")');
+        console.info(` - 모든 사용자 좌석 초기화(관리자): resetAllSeatsForEveryone("${this.adminPassword}")`);
+    }
+    
+    // 클라이언트 상태 초기화 공통 함수
+    resetClientState() {
+        // 로컬 스토리지 초기화
+        localStorage.removeItem('userSeat');
+        
+        // 메모리에서 할당된 좌석 초기화
+        this.maleAssignments.clear();
+        this.femaleAssignments.clear();
+        
+        // 화면 초기화
+        this.selectedGender = null;
+        this.userSeat = null;
+        
+        // 버튼 상태 초기화
+        this.maleBtn.classList.remove('active');
+        this.femaleBtn.classList.remove('active');
+        
+        // 좌석 표시 초기화
+        this.resetSeatDisplay();
+        this.seatNumberDisplay.textContent = '좌석을 선택해주세요';
     }
     
     // 내 좌석만 초기화 기능
@@ -270,27 +319,8 @@ class SeatAssignment {
                 
             if (error) throw error;
             
-            // 로컬 스토리지 초기화
-            localStorage.removeItem('userSeat');
-            
-            // 메모리에서 할당된 좌석 초기화
-            this.maleAssignments.clear();
-            this.femaleAssignments.clear();
-            
-            // 화면 초기화
-            this.selectedGender = null;
-            this.userSeat = null;
-            this.seatNumberDisplay.textContent = '좌석을 선택해주세요';
-            
-            // 버튼 상태 초기화
-            this.maleBtn.classList.remove('active');
-            this.femaleBtn.classList.remove('active');
-            
-            // 모든 좌석 표시 초기화
-            const seats = document.querySelectorAll('.seat');
-            seats.forEach(seat => {
-                seat.classList.remove('male', 'female');
-            });
+            // 클라이언트 상태 초기화
+            this.resetClientState();
             
             // 다시 좌석 데이터 로드
             await this.loadSeatsFromSupabase();
@@ -304,47 +334,25 @@ class SeatAssignment {
         }
     }
     
-    // 모든 사용자의 좌석 초기화 기능 (관리자용) - 로컬 및 서버 방식 혼합
+    // 모든 사용자의 좌석 초기화 기능 (관리자용)
     async resetAllSeatsForEveryone(adminPassword) {
         try {
-            // 관리자 비밀번호 확인 (로컬에서 검증 - 실제 운영에서는 서버에서 처리해야 함)
-            const correctPassword = 'love1030';
-            
-            if (adminPassword !== correctPassword) {
+            // 관리자 비밀번호 확인
+            if (adminPassword !== this.adminPassword) {
                 console.error('🔴 관리자 인증 실패: 비밀번호가 올바르지 않습니다.');
                 throw new Error('관리자 인증 실패: 비밀번호가 올바르지 않습니다.');
             }
             
             // 서버에서 모든 좌석 삭제
-            const { data, error } = await supabase
+            const { error } = await supabase
                 .from('seats')
                 .delete()
                 .neq('id', 0);
                 
             if (error) throw error;
             
-            // 성공적으로 초기화되었으므로 클라이언트 상태도 초기화
-            // 로컬 스토리지 초기화
-            localStorage.removeItem('userSeat');
-            
-            // 메모리에서 할당된 좌석 초기화
-            this.maleAssignments.clear();
-            this.femaleAssignments.clear();
-            
-            // 화면 초기화
-            this.selectedGender = null;
-            this.userSeat = null;
-            this.seatNumberDisplay.textContent = '좌석을 선택해주세요';
-            
-            // 버튼 상태 초기화
-            this.maleBtn.classList.remove('active');
-            this.femaleBtn.classList.remove('active');
-            
-            // 모든 좌석 표시 초기화
-            const seats = document.querySelectorAll('.seat');
-            seats.forEach(seat => {
-                seat.classList.remove('male', 'female');
-            });
+            // 클라이언트 상태 초기화
+            this.resetClientState();
             
             // 다시 좌석 데이터 로드
             await this.loadSeatsFromSupabase();
@@ -356,16 +364,7 @@ class SeatAssignment {
             window.dispatchEvent(resetEvent);
             
             // 모든 클라이언트에 좌석 초기화 메시지 브로드캐스트
-            if (typeof broadcastSeatsReset === 'function') {
-                const broadcastResult = await broadcastSeatsReset();
-                if (broadcastResult) {
-                    console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
-                } else {
-                    console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
-                }
-            } else {
-                console.warn('⚠️ broadcastSeatsReset 함수를 찾을 수 없습니다. 실시간 업데이트가 일부 클라이언트에 전달되지 않을 수 있습니다.');
-            }
+            await this.broadcastResetEvent();
             
             alert('모든 사용자의 좌석이 초기화되었습니다.');
             
@@ -374,6 +373,20 @@ class SeatAssignment {
             console.error('전체 좌석 초기화 중 오류 발생:', error);
             alert(error.message || '전체 좌석 초기화 중 오류가 발생했습니다.');
             return false;
+        }
+    }
+    
+    // 브로드캐스트 이벤트 전송 함수
+    async broadcastResetEvent() {
+        if (typeof broadcastSeatsReset === 'function') {
+            const broadcastResult = await broadcastSeatsReset();
+            if (broadcastResult) {
+                console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
+            } else {
+                console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
+            }
+        } else {
+            console.warn('⚠️ broadcastSeatsReset 함수를 찾을 수 없습니다. 실시간 업데이트가 일부 클라이언트에 전달되지 않을 수 있습니다.');
         }
     }
 }

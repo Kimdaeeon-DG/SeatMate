@@ -82,6 +82,24 @@
             background-color: #5a6268;
         }
         
+        .login-btn {
+            background-color: #007bff;
+            color: white;
+        }
+        
+        .login-btn:hover {
+            background-color: #0069d9;
+        }
+        
+        .logout-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .logout-btn:hover {
+            background-color: #c82333;
+        }
+        
         .status-message {
             margin-top: 20px;
             padding: 10px;
@@ -195,41 +213,60 @@
             <p>관리자 비밀번호를 입력하여 시스템을 관리할 수 있습니다.</p>
         </div>
         
-        <div class="admin-form">
+        <!-- 로그인 화면 -->
+        <div id="login-section" class="admin-form">
             <div class="form-group">
-                <label for="admin-password">관리자 비밀번호</label>
-                <input type="password" id="admin-password" placeholder="비밀번호를 입력하세요">
+                <label for="login-password">관리자 비밀번호</label>
+                <input type="password" id="login-password" placeholder="비밀번호를 입력하세요">
             </div>
             
             <div class="admin-actions">
-                <button id="reset-all-seats" class="admin-btn reset-btn">모든 좌석 초기화</button>
-                <button id="back-to-main" class="admin-btn back-btn">메인 페이지로 돌아가기</button>
+                <button id="login-btn" class="admin-btn login-btn">로그인</button>
+                <button id="login-back-btn" class="admin-btn back-btn">메인 페이지로 돌아가기</button>
             </div>
             
-            <div id="status-message" class="status-message hidden"></div>
+            <div id="login-message" class="status-message hidden"></div>
         </div>
         
-        <div class="admin-legend">
-            <div class="legend-item">
-                <div class="legend-color legend-male"></div>
-                <span>남자</span>
+        <!-- 관리자 페이지 컨텐츠 (초기에는 숨겨져 있음) -->
+        <div id="admin-content" class="hidden">
+            <div class="admin-form">
+                <div class="form-group">
+                    <label for="admin-password">관리자 비밀번호 (좌석 초기화용)</label>
+                    <input type="password" id="admin-password" placeholder="비밀번호를 입력하세요">
+                </div>
+                
+                <div class="admin-actions">
+                    <button id="reset-all-seats" class="admin-btn reset-btn">모든 좌석 초기화</button>
+                    <button id="logout-btn" class="admin-btn logout-btn">로그아웃</button>
+                    <button id="back-to-main" class="admin-btn back-btn">메인 페이지로 돌아가기</button>
+                </div>
+                
+                <div id="status-message" class="status-message hidden"></div>
             </div>
-            <div class="legend-item">
-                <div class="legend-color legend-female"></div>
-                <span>여자</span>
+            
+            <div class="admin-legend">
+                <div class="legend-item">
+                    <div class="legend-color legend-male"></div>
+                    <span>남자</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-female"></div>
+                    <span>여자</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-mixed"></div>
+                    <span>중복 선택</span>
+                </div>
+                <div class="legend-item">
+                    <div class="legend-color legend-empty"></div>
+                    <span>비어있음</span>
+                </div>
             </div>
-            <div class="legend-item">
-                <div class="legend-color legend-mixed"></div>
-                <span>중복 선택</span>
+            
+            <div class="admin-seat-grid" id="admin-seat-grid">
+                <!-- 좌석이 JavaScript로 생성됩니다 -->
             </div>
-            <div class="legend-item">
-                <div class="legend-color legend-empty"></div>
-                <span>비어있음</span>
-            </div>
-        </div>
-        
-        <div class="admin-seat-grid" id="admin-seat-grid">
-            <!-- 좌석이 JavaScript로 생성됩니다 -->
         </div>
     </div>
     
@@ -237,9 +274,18 @@
     <script src="supabase-config.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 버튼 요소 가져오기
+            // 로그인 관련 요소
+            const loginSection = document.getElementById('login-section');
+            const loginPasswordInput = document.getElementById('login-password');
+            const loginBtn = document.getElementById('login-btn');
+            const loginBackBtn = document.getElementById('login-back-btn');
+            const loginMessage = document.getElementById('login-message');
+            const adminContent = document.getElementById('admin-content');
+            
+            // 관리자 페이지 요소
             const resetAllSeatsBtn = document.getElementById('reset-all-seats');
             const backToMainBtn = document.getElementById('back-to-main');
+            const logoutBtn = document.getElementById('logout-btn');
             const adminPasswordInput = document.getElementById('admin-password');
             const statusMessage = document.getElementById('status-message');
             const adminSeatGrid = document.getElementById('admin-seat-grid');
@@ -248,14 +294,54 @@
             const totalRows = 10;
             const totalCols = 4;
             
-            // 좌석 그리드 생성
-            createAdminSeatGrid();
+            // 관리자 비밀번호
+            const correctPassword = 'love1030';
             
-            // 초기 좌석 데이터 로드
-            loadAndDisplayAllSeats();
+            // 로그인 버튼 클릭 이벤트
+            loginBtn.addEventListener('click', function() {
+                const password = loginPasswordInput.value.trim();
+                
+                if (!password) {
+                    showLoginMessage('비밀번호를 입력해주세요.', 'error');
+                    return;
+                }
+                
+                if (password === correctPassword) {
+                    // 비밀번호 일치 - 관리자 페이지 표시
+                    loginSection.classList.add('hidden');
+                    adminContent.classList.remove('hidden');
+                    
+                    // 좌석 그리드 생성 및 데이터 로드
+                    createAdminSeatGrid();
+                    loadAndDisplayAllSeats();
+                    setupRealtimeListener();
+                } else {
+                    showLoginMessage('비밀번호가 올바르지 않습니다.', 'error');
+                }
+            });
             
-            // 실시간 업데이트 리스너 설정
-            setupRealtimeListener();
+            // 로그아웃 버튼 클릭 이벤트
+            logoutBtn.addEventListener('click', function() {
+                adminContent.classList.add('hidden');
+                loginSection.classList.remove('hidden');
+                loginPasswordInput.value = '';
+            });
+            
+            // 로그인 화면에서 메인으로 돌아가기 버튼
+            loginBackBtn.addEventListener('click', function() {
+                window.location.href = 'index.html';
+            });
+            
+            // 로그인 메시지 표시 함수
+            function showLoginMessage(message, type) {
+                loginMessage.textContent = message;
+                loginMessage.className = `status-message ${type}`;
+                
+                // 3초 후 메시지 숨기기
+                setTimeout(() => {
+                    loginMessage.className = 'status-message hidden';
+                }, 3000);
+            }
             
             // 좌석 그리드 생성 함수
             function createAdminSeatGrid() {
@@ -347,9 +433,7 @@
                 }
                 
                 try {
-                    // 관리자 비밀번호 확인 (로컬에서 검증 - 실제 운영에서는 서버에서 처리해야 함)
-                    const correctPassword = 'love1030';
-                    
+                    // 관리자 비밀번호 확인
                     if (adminPassword !== correctPassword) {
                         showMessage('관리자 인증 실패: 비밀번호가 올바르지 않습니다.', 'error');
                         return;
