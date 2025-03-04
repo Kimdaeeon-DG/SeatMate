@@ -166,41 +166,41 @@ class SeatAssignment {
         try {
             console.log(`💾 Supabase에 좌석 저장 시도: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
             
-            // 좌석 번호와 성별, 사용자 ID로 기존 데이터가 있는지 확인
+            // 성별에 따라 테이블 선택
+            const tableName = this.selectedGender === 'male' ? 'male_seats' : 'female_seats';
+            
+            // 해당 테이블에서 좌석 번호로 기존 데이터 확인
             const { data: existingData, error: fetchError } = await supabase
-                .from('seats')
+                .from(tableName)
                 .select('*')
-                .eq('seat_number', seatNumber)
-                .eq('gender', this.selectedGender);
+                .eq('seat_number', seatNumber);
                 
             if (fetchError) {
                 throw new Error(`기존 데이터 확인 오류: ${fetchError.message}`);
             }
             
-            // 기존 같은 성별의 데이터가 있는지 확인
+            // 기존 데이터가 있는지 확인
             if (existingData && existingData.length > 0) {
-                // 같은 성별의 데이터가 이미 있음 - 새로운 사용자 ID로 업데이트
-                console.log(`⚠️ 같은 성별 데이터 발견: 업데이트 시도`);
+                // 이미 존재하는 좌석 - 사용자 ID 업데이트
+                console.log(`⚠️ 기존 좌석 발견: 업데이트 시도`);
                 const updateResult = await supabase
-                    .from('seats')
+                    .from(tableName)
                     .update({ user_id: this.userId })
-                    .eq('seat_number', seatNumber)
-                    .eq('gender', this.selectedGender);
+                    .eq('seat_number', seatNumber);
                     
                 if (updateResult.error) {
                     throw new Error(`좌석 업데이트 오류: ${updateResult.error.message}`);
                 }
                 
-                console.log(`✅ 기존 좌석 업데이트 성공: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
+                console.log(`✅ 기존 좌석 업데이트 성공: 좌석 ${seatNumber}, 테이블 ${tableName}`);
             } else {
-                // 새로운 데이터 삽입 - 다른 성별의 데이터가 있을 수 있음
-                console.log(`➕ 새 데이터 삽입 시도`);
+                // 새로운 좌석 할당
+                console.log(`➕ 새 좌석 할당 시도: 테이블 ${tableName}`);
                 const result = await supabase
-                    .from('seats')
+                    .from(tableName)
                     .insert([
                         { 
                             seat_number: seatNumber, 
-                            gender: this.selectedGender,
                             user_id: this.userId
                         }
                     ]);
@@ -211,21 +211,20 @@ class SeatAssignment {
                         console.log(`⚠️ 중복 오류 발생: 업데이트 시도`);
                         // 이미 존재하는 데이터를 업데이트
                         const updateResult = await supabase
-                            .from('seats')
+                            .from(tableName)
                             .update({ user_id: this.userId })
-                            .eq('seat_number', seatNumber)
-                            .eq('gender', this.selectedGender);
+                            .eq('seat_number', seatNumber);
                             
                         if (updateResult.error) {
                             throw new Error(`좌석 업데이트 오류: ${updateResult.error.message}`);
                         }
                         
-                        console.log(`✅ 좌석 업데이트 성공: ${seatNumber}, 성별 ${this.selectedGender}`);
+                        console.log(`✅ 좌석 업데이트 성공: 좌석 ${seatNumber}, 테이블 ${tableName}`);
                     } else {
                         throw new Error(`좌석 저장 오류: ${result.error.message}`);
                     }
                 } else {
-                    console.log(`✅ Supabase에 좌석 저장 성공: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
+                    console.log(`✅ Supabase에 좌석 저장 성공: 좌석 ${seatNumber}, 테이블 ${tableName}`);
                 }
             }
         } catch (error) {
@@ -278,23 +277,50 @@ class SeatAssignment {
     // Supabase에서 좌석 데이터 로드
     async loadSeatsFromSupabase() {
         try {
-            const { data, error } = await supabase
-                .from('seats')
+            // 남성 좌석 데이터 로드
+            const { data: maleData, error: maleError } = await supabase
+                .from('male_seats')
                 .select('*');
-
-            if (error) throw error;
-
+                
+            // 여성 좌석 데이터 로드
+            const { data: femaleData, error: femaleError } = await supabase
+                .from('female_seats')
+                .select('*');
+                
+            if (maleError) {
+                console.error('남성 좌석 데이터 로드 오류:', maleError);
+            }
+            
+            if (femaleError) {
+                console.error('여성 좌석 데이터 로드 오류:', femaleError);
+            }
+            
             // 좌석 데이터 초기화
             this.maleAssignments.clear();
             this.femaleAssignments.clear();
 
+            // 남성 데이터에 성별 정보 추가
+            const processedMaleData = (maleData || []).map(seat => ({
+                ...seat,
+                gender: 'male'
+            }));
+            
+            // 여성 데이터에 성별 정보 추가
+            const processedFemaleData = (femaleData || []).map(seat => ({
+                ...seat,
+                gender: 'female'
+            }));
+            
+            // 남성과 여성 데이터 합치기
+            const combinedData = [...processedMaleData, ...processedFemaleData];
+            
             // 데이터베이스에서 좌석 정보 로드
-            this.processSeatsData(data);
+            this.processSeatsData(combinedData);
             
             // 좌석 표시 업데이트
             this.updateSeatDisplay();
             
-            return data;
+            return combinedData;
         } catch (error) {
             console.error('좌석 데이터 로드 중 오류 발생:', error);
             return [];

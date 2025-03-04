@@ -52,13 +52,37 @@ async function setupRealtimeSubscription() {
     // 테이블 존재 여부 확인 및 생성
     await createTableIfNotExists();
     
-    // 실시간 구독 활성화
+    // 실시간 구독 활성화 - 남성과 여성 테이블 모두 구독
     const channel = supabase.channel('public:seats')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'seats' }, payload => {
-        console.log('✅ 실시간 업데이트:', payload);
+      // 남성 테이블 변경 구독
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'male_seats' }, payload => {
+        console.log('✅ 남성 좌석 실시간 업데이트:', payload);
+        // 성별 정보 추가
+        const updatedData = { ...payload.new, gender: 'male' };
         // 좌석 상태 업데이트 이벤트 발생
-        const event = new CustomEvent('seatsUpdated', { detail: payload.new });
+        const event = new CustomEvent('seatsUpdated', { detail: updatedData });
         window.dispatchEvent(event);
+      })
+      // 여성 테이블 변경 구독
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'female_seats' }, payload => {
+        console.log('✅ 여성 좌석 실시간 업데이트:', payload);
+        // 성별 정보 추가
+        const updatedData = { ...payload.new, gender: 'female' };
+        // 좌석 상태 업데이트 이벤트 발생
+        const event = new CustomEvent('seatsUpdated', { detail: updatedData });
+        window.dispatchEvent(event);
+      })
+      // 시스템 정보 테이블 변경 구독 (초기화 정보)
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'system_info' }, payload => {
+        console.log('✅ 시스템 정보 업데이트:', payload);
+        // 초기화 정보가 있는 경우 처리
+        if (payload.new && payload.new.reset_timestamp) {
+          // 초기화 이벤트 발생
+          const resetEvent = new CustomEvent('seatsReset', { 
+            detail: { timestamp: payload.new.reset_timestamp, id: payload.new.reset_id }
+          });
+          window.dispatchEvent(resetEvent);
+        }
       })
       // 브로드캐스트 메시지 리스너 추가 - 좌석 초기화 이벤트 수신
       .on('broadcast', { event: 'seats-reset' }, payload => {
@@ -119,7 +143,7 @@ async function setupRealtimeSubscription() {
   }
 }
 
-// 좌석 초기화 브로드캐스트 함수 (모든 클라이언트에 알림)
+// 좌석 초기화 브로드캠스트 함수 (모든 클라이언트에 알림)
 async function broadcastSeatsReset() {
   try {
     if (window.supabaseChannel) {
@@ -131,24 +155,30 @@ async function broadcastSeatsReset() {
       
       // 초기화 타임스태프를 Supabase에 저장
       try {
-        // 기존 초기화 레코드 삭제
+        // 모든 남성 좌석 삭제
         await supabase
-          .from('seats')
+          .from('male_seats')
           .delete()
-          .eq('seat_number', -1);
+          .neq('seat_number', 0);
+          
+        // 모든 여성 좌석 삭제
+        await supabase
+          .from('female_seats')
+          .delete()
+          .neq('seat_number', 0);
           
         // 새 초기화 레코드 추가
         const { error: insertError } = await supabase
-          .from('seats')
+          .from('system_info')
           .insert([
             {
-              seat_number: -1, // 특별한 값으로 초기화 정보를 저장
-              user_id: 'system',
-              gender: 'system',
+              id: 1, // 초기화 정보를 위한 ID
               reset_timestamp: resetTimestamp,
               reset_id: resetId
             }
-          ]);
+          ])
+          .onConflict('id')
+          .merge(); // 이미 존재하는 경우 업데이트
           
         if (insertError) {
           console.error('❌ 초기화 타임스태프 저장 오류:', insertError);
@@ -184,33 +214,62 @@ async function broadcastSeatsReset() {
 // 테이블 존재 여부 확인 및 생성
 async function createTableIfNotExists() {
   try {
-    // 테이블 존재 여부 확인
-    const { data, error } = await supabase
-      .from('seats')
+    // 남성 테이블 확인
+    const { data: maleData, error: maleError } = await supabase
+      .from('male_seats')
       .select('count(*)', { count: 'exact' })
       .limit(0);
     
-    if (error) {
-      console.warn('테이블이 존재하지 않을 수 있습니다. 로컬 모드로 작동합니다.');
+    // 여성 테이블 확인
+    const { data: femaleData, error: femaleError } = await supabase
+      .from('female_seats')
+      .select('count(*)', { count: 'exact' })
+      .limit(0);
+    
+    // 시스템 테이블 확인 (초기화 정보 저장용)
+    const { data: systemData, error: systemError } = await supabase
+      .from('system_info')
+      .select('count(*)', { count: 'exact' })
+      .limit(0);
+    
+    if (maleError || femaleError || systemError) {
+      console.warn('하나 이상의 테이블이 존재하지 않습니다. 로컬 모드로 작동합니다.');
       console.log('테이블 구조 확인 필요: Supabase 대시보드에서 다음 구조로 테이블을 설정해야 합니다:');
-      console.log('- seat_number: integer (primary key)');
-      console.log('- gender: text (not null)');
-      console.log('- user_id: text (not null)');
-      console.log('- created_at: timestamp with time zone (default: now())');
-      console.log('\n중요: seat_number와 gender를 함께 복합 고유 제약조건으로 설정해야 합니다.');
+      console.log('1. male_seats 테이블:');
+      console.log('   - seat_number: integer (primary key)');
+      console.log('   - user_id: text (not null)');
+      console.log('   - created_at: timestamp with time zone (default: now())');
+      console.log('\n2. female_seats 테이블:');
+      console.log('   - seat_number: integer (primary key)');
+      console.log('   - user_id: text (not null)');
+      console.log('   - created_at: timestamp with time zone (default: now())');
+      console.log('\n3. system_info 테이블:');
+      console.log('   - id: integer (primary key)');
+      console.log('   - reset_timestamp: timestamp with time zone');
+      console.log('   - reset_id: text');
     } else {
-      console.log('✅ 테이블이 존재합니다.');
+      console.log('✅ 모든 테이블이 존재합니다.');
       
       // 테이블 구조 확인 시도
       try {
-        // 좌석 데이터 샘플 가져오기
-        const { data: sampleData, error: sampleError } = await supabase
-          .from('seats')
+        // 남성 좌석 데이터 샘플 가져오기
+        const { data: maleSampleData, error: maleSampleError } = await supabase
+          .from('male_seats')
           .select('*')
           .limit(1);
           
-        if (!sampleError && sampleData && sampleData.length > 0) {
-          console.log('현재 테이블 구조 샘플:', sampleData[0]);
+        // 여성 좌석 데이터 샘플 가져오기
+        const { data: femaleSampleData, error: femaleSampleError } = await supabase
+          .from('female_seats')
+          .select('*')
+          .limit(1);
+          
+        if (!maleSampleError && maleSampleData && maleSampleData.length > 0) {
+          console.log('현재 male_seats 테이블 구조 샘플:', maleSampleData[0]);
+        }
+        
+        if (!femaleSampleError && femaleSampleData && femaleSampleData.length > 0) {
+          console.log('현재 female_seats 테이블 구조 샘플:', femaleSampleData[0]);
         }
       } catch (sampleError) {
         console.error('테이블 구조 확인 오류:', sampleError);
