@@ -181,17 +181,9 @@ class SeatAssignment {
             const seatElement = seats[seatIndex];
             
             if (seatElement) {
-                // 해당 좌석에 남성과 여성이 모두 할당되었는지 확인
-                const hasMale = this.maleAssignments.has(this.userSeat.number);
-                const hasFemale = this.femaleAssignments.has(this.userSeat.number);
-                
-                if (hasMale && hasFemale) {
-                    // 남성과 여성이 모두 할당된 경우 mixed 클래스 추가
-                    seatElement.classList.add('mixed');
-                } else {
-                    // 그렇지 않은 경우 사용자의 성별에 따라 클래스 추가
-                    seatElement.classList.add(this.userSeat.gender);
-                }
+                // 개인 페이지에서는 항상 사용자 자신의 성별로만 표시
+                // 혼합 성별(노란색)은 관리자 페이지에서만 표시
+                seatElement.classList.add(this.userSeat.gender);
             }
             
             this.seatNumberDisplay.textContent = `${this.userSeat.number}번입니다`;
