@@ -116,6 +116,39 @@ h1 {
     box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
 }
 
+.admin-link {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.admin-link-text {
+    color: #6c757d;
+    text-decoration: none;
+    font-size: 0.9em;
+    transition: color 0.3s;
+    position: relative;
+    padding-bottom: 2px;
+}
+
+.admin-link-text:hover {
+    color: #343a40;
+}
+
+.admin-link-text::after {
+    content: '';
+    position: absolute;
+    width: 0;
+    height: 1px;
+    bottom: 0;
+    left: 0;
+    background-color: #343a40;
+    transition: width 0.3s;
+}
+
+.admin-link-text:hover::after {
+    width: 100%;
+}
+
 @media (max-width: 768px) {
     .seat-grid {
         grid-template-columns: repeat(4, 40px);
@@ -136,5 +169,13 @@ h1 {
 
     .gender-btn, .select-btn {
         padding: 8px 16px;
+    }
+    
+    .admin-link {
+        margin-top: 15px;
+    }
+    
+    .admin-link-text {
+        font-size: 0.8em;
     }
 }
