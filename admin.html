@@ -163,8 +163,8 @@
         }
         
         .admin-seat.mixed {
-            background-color: #FFD700; /* 금색 */
-            border-color: #FFD700;
+            background-color: #FFFF99; /* 노란색 */
+            border-color: #FFCC00;
         }
         
         .admin-legend {
@@ -197,7 +197,8 @@
         }
         
         .legend-mixed {
-            background-color: #FFD700;
+            background-color: #FFFF99;
+            border: 1px solid #FFCC00;
         }
         
         .legend-empty {
@@ -213,7 +214,7 @@
             <p>관리자 비밀번호를 입력하여 시스템을 관리할 수 있습니다.</p>
         </div>
         
-        <!-- 로그인 화면 -->
+        <!-- 비밀번호 확인 화면 -->
         <div id="login-section" class="admin-form">
             <div class="form-group">
                 <label for="login-password">관리자 비밀번호</label>
@@ -221,7 +222,7 @@
             </div>
             
             <div class="admin-actions">
-                <button id="login-btn" class="admin-btn login-btn">로그인</button>
+                <button id="login-btn" class="admin-btn login-btn">확인</button>
                 <button id="login-back-btn" class="admin-btn back-btn">메인 페이지로 돌아가기</button>
             </div>
             
@@ -238,7 +239,6 @@
                 
                 <div class="admin-actions">
                     <button id="reset-all-seats" class="admin-btn reset-btn">모든 좌석 초기화</button>
-                    <button id="logout-btn" class="admin-btn logout-btn">로그아웃</button>
                     <button id="back-to-main" class="admin-btn back-btn">메인 페이지로 돌아가기</button>
                 </div>
                 
@@ -256,7 +256,7 @@
                 </div>
                 <div class="legend-item">
                     <div class="legend-color legend-mixed"></div>
-                    <span>중복 선택</span>
+                    <span>남자+여자</span>
                 </div>
                 <div class="legend-item">
                     <div class="legend-color legend-empty"></div>
@@ -274,7 +274,7 @@
     <script src="supabase-config.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
-            // 로그인 관련 요소
+            // 비밀번호 화면 관련 요소
             const loginSection = document.getElementById('login-section');
             const loginPasswordInput = document.getElementById('login-password');
             const loginBtn = document.getElementById('login-btn');
@@ -285,7 +285,6 @@
             // 관리자 페이지 요소
             const resetAllSeatsBtn = document.getElementById('reset-all-seats');
             const backToMainBtn = document.getElementById('back-to-main');
-            const logoutBtn = document.getElementById('logout-btn');
             const adminPasswordInput = document.getElementById('admin-password');
             const statusMessage = document.getElementById('status-message');
             const adminSeatGrid = document.getElementById('admin-seat-grid');
@@ -297,7 +296,7 @@
             // 관리자 비밀번호
             const correctPassword = 'love1030';
             
-            // 로그인 버튼 클릭 이벤트
+            // 비밀번호 확인 버튼 클릭 이벤트
             loginBtn.addEventListener('click', function() {
                 const password = loginPasswordInput.value.trim();
                 
@@ -320,19 +319,12 @@
                 }
             });
             
-            // 로그아웃 버튼 클릭 이벤트
-            logoutBtn.addEventListener('click', function() {
-                adminContent.classList.add('hidden');
-                loginSection.classList.remove('hidden');
-                loginPasswordInput.value = '';
-            });
-            
-            // 로그인 화면에서 메인으로 돌아가기 버튼
+            // 비밀번호 화면에서 메인으로 돌아가기 버튼
             loginBackBtn.addEventListener('click', function() {
                 window.location.href = 'index.html';
             });
             
-            // 로그인 메시지 표시 함수
+            // 비밀번호 화면 메시지 표시 함수
             function showLoginMessage(message, type) {
                 loginMessage.textContent = message;
                 loginMessage.className = `status-message ${type}`;
@@ -400,8 +392,16 @@
                             // 하나의 성별만 있는 경우
                             seatElement.classList.add(genders[0]);
                         } else if (genders.length > 1) {
-                            // 중복 선택된 경우
-                            seatElement.classList.add('mixed');
+                            // 중복 선택된 경우 - 남자와 여자가 모두 있는지 확인
+                            const hasMale = genders.includes('male');
+                            const hasFemale = genders.includes('female');
+                            
+                            if (hasMale && hasFemale) {
+                                seatElement.classList.add('mixed');
+                            } else {
+                                // 남자만 있거나 여자만 있는 경우
+                                seatElement.classList.add(genders[0]);
+                            }
                         }
                     }
                     

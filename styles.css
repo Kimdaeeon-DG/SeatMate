@@ -18,6 +18,12 @@ body {
     background-color: #f5f5f5;
 }
 
+/* 남자와 여자가 모두 배정된 좌석 스타일 */
+.seat.mixed, .admin-seat.mixed {
+    background-color: #FFFF99; /* 노란색 */
+    border-color: #FFCC00;
+}
+
 .container {
     width: 100%;
     max-width: 1000px;
