@@ -368,7 +368,7 @@ class SeatAssignment {
     }
     
     // 초기화 상태 확인 - 서버에 데이터가 없지만 로컬에 있는 경우 초기화
-    checkResetStatus(serverData) {
+    async checkResetStatus(serverData) {
         console.log('📢 초기화 상태 확인 시작');
         
         // 서버에 데이터가 없고 로컬에 좌석 정보가 있는 경우
@@ -394,23 +394,34 @@ class SeatAssignment {
             }
         }
         
-        // 서버에서 초기화 타임스태프 확인 가능한 경우
-        if (serverData.length > 0) {
-            // 초기화 정보가 있는지 확인
-            const resetInfo = serverData.find(item => item.reset_timestamp);
-            if (resetInfo && resetInfo.reset_timestamp) {
-                const serverResetTime = new Date(resetInfo.reset_timestamp).getTime();
+        // system_info 테이블에서 초기화 정보 확인
+        try {
+            const { data: systemInfo, error } = await supabase
+                .from('system_info')
+                .select('*')
+                .eq('id', 1)
+                .single();
+                
+            if (error) {
+                console.warn('📢 system_info 테이블 조회 오류:', error);
+                return false;
+            }
+            
+            if (systemInfo && systemInfo.reset_timestamp) {
+                const serverResetTime = new Date(systemInfo.reset_timestamp).getTime();
                 const localResetTime = new Date(this.lastResetTimestamp).getTime();
                 
                 // 서버의 초기화 시간이 로컬보다 더 최신이면 로컬 스토리지 초기화
                 if (serverResetTime > localResetTime) {
                     console.log('📢 서버의 초기화 시간이 로컬보다 더 최신임 - 로컬 스토리지 초기화');
-                    this.lastResetTimestamp = resetInfo.reset_timestamp;
-                    localStorage.setItem('lastResetTimestamp', resetInfo.reset_timestamp);
+                    this.lastResetTimestamp = systemInfo.reset_timestamp;
+                    localStorage.setItem('lastResetTimestamp', systemInfo.reset_timestamp);
                     this.resetClientState();
                     return true;
                 }
             }
+        } catch (error) {
+            console.error('📢 초기화 정보 확인 중 오류:', error);
         }
         
         console.log('📢 초기화 상태 확인 완료 - 초기화 필요 없음');
