@@ -319,6 +319,14 @@
                 }
             });
             
+            // Enter 키로 로그인 처리
+            loginPasswordInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    event.preventDefault();
+                    loginBtn.click();
+                }
+            });
+            
             // 비밀번호 화면에서 메인으로 돌아가기 버튼
             loginBackBtn.addEventListener('click', function() {
                 window.location.href = 'index.html';
