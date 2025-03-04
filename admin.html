@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="styles.css">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <!-- 실시간 이벤트 처리를 위한 스크립트 먼저 로드 -->
+    <script src="supabase-config.js"></script>
     <style>
         .admin-container {
             max-width: 800px;
@@ -269,9 +271,6 @@
             </div>
         </div>
     </div>
-    
-    <!-- Supabase 설정 -->
-    <script src="supabase-config.js"></script>
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // 비밀번호 화면 관련 요소
@@ -314,6 +313,8 @@
                     createAdminSeatGrid();
                     loadAndDisplayAllSeats();
                     setupRealtimeListener();
+                    
+                    console.log('관리자 페이지 로그인 성공');
                 } else {
                     showLoginMessage('비밀번호가 올바르지 않습니다.', 'error');
                 }
@@ -438,13 +439,27 @@
             
             // 실시간 업데이트 리스너 설정
             function setupRealtimeListener() {
-                window.addEventListener('seatsUpdated', () => {
-                    loadAndDisplayAllSeats();
-                });
+                console.log('실시간 업데이트 리스너 설정 중...');
                 
-                window.addEventListener('seatsReset', () => {
-                    loadAndDisplayAllSeats();
-                });
+                // 기존 이벤트 리스너 제거 후 다시 추가
+                window.removeEventListener('seatsUpdated', handleSeatsUpdated);
+                window.removeEventListener('seatsReset', handleSeatsReset);
+                
+                window.addEventListener('seatsUpdated', handleSeatsUpdated);
+                window.addEventListener('seatsReset', handleSeatsReset);
+                
+                console.log('실시간 업데이트 리스너 설정 완료');
+            }
+            
+            // 이벤트 핸들러 함수들
+            function handleSeatsUpdated() {
+                console.log('좌석 업데이트 이벤트 받음');
+                loadAndDisplayAllSeats();
+            }
+            
+            function handleSeatsReset() {
+                console.log('좌석 초기화 이벤트 받음');
+                loadAndDisplayAllSeats();
             }
             
             // 모든 좌석 초기화 버튼 클릭 이벤트
@@ -479,15 +494,20 @@
                     window.dispatchEvent(resetEvent);
                     
                     // 모든 클라이언트에 좌석 초기화 메시지 브로드캐스트
-                    if (typeof broadcastSeatsReset === 'function') {
-                        const broadcastResult = await broadcastSeatsReset();
-                        if (broadcastResult) {
-                            console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
+                    try {
+                        if (typeof broadcastSeatsReset === 'function') {
+                            console.log('브로드캐스트 함수 호출 시도...');
+                            const broadcastResult = await broadcastSeatsReset();
+                            if (broadcastResult) {
+                                console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
+                            } else {
+                                console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
+                            }
                         } else {
-                            console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
+                            console.warn('⚠️ broadcastSeatsReset 함수를 찾을 수 없습니다. 실시간 업데이트가 일부 클라이언트에 전달되지 않을 수 있습니다.');
                         }
-                    } else {
-                        console.warn('⚠️ broadcastSeatsReset 함수를 찾을 수 없습니다. 실시간 업데이트가 일부 클라이언트에 전달되지 않을 수 있습니다.');
+                    } catch (broadcastError) {
+                        console.error('브로드캐스트 오류:', broadcastError);
                     }
                     
                     // 좌석 데이터 다시 로드
