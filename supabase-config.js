@@ -53,7 +53,7 @@ async function setupRealtimeSubscription() {
     await createTableIfNotExists();
     
     // 실시간 구독 활성화 - 남성과 여성 테이블 모두 구독
-    const channel = supabase.channel('public:seats')
+    const channel = supabase.channel('public:seat_updates')
       // 남성 테이블 변경 구독
       .on('postgres_changes', { event: '*', schema: 'public', table: 'male_seats' }, payload => {
         console.log('✅ 남성 좌석 실시간 업데이트:', payload);

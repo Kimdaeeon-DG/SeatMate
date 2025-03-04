@@ -354,9 +354,25 @@
             // 모든 좌석 데이터 로드 및 표시
             async function loadAndDisplayAllSeats() {
                 try {
-                    const { data, error } = await supabase
-                        .from('seats')
+                    // 남성 좌석 데이터 로드
+                    const { data: maleData, error: maleError } = await supabase
+                        .from('male_seats')
                         .select('*');
+                        
+                    // 여성 좌석 데이터 로드
+                    const { data: femaleData, error: femaleError } = await supabase
+                        .from('female_seats')
+                        .select('*');
+                        
+                    // 오류 확인
+                    if (maleError) throw maleError;
+                    if (femaleError) throw femaleError;
+                    
+                    // 데이터 병합
+                    const data = [
+                        ...(maleData || []).map(seat => ({ ...seat, gender: 'male' })),
+                        ...(femaleData || []).map(seat => ({ ...seat, gender: 'female' }))
+                    ];
                         
                     if (error) throw error;
                     
@@ -460,11 +476,21 @@
                         return;
                     }
                     
-                    // 서버에서 모든 좌석 삭제
-                    const { data, error } = await supabase
-                        .from('seats')
+                    // 서버에서 모든 남성 좌석 삭제
+                    const { error: maleError } = await supabase
+                        .from('male_seats')
                         .delete()
-                        .neq('id', 0);
+                        .neq('seat_number', 0);
+                        
+                    // 서버에서 모든 여성 좌석 삭제
+                    const { error: femaleError } = await supabase
+                        .from('female_seats')
+                        .delete()
+                        .neq('seat_number', 0);
+                        
+                    // 오류 확인
+                    if (maleError) throw maleError;
+                    if (femaleError) throw femaleError;
                         
                     if (error) throw error;
                     
