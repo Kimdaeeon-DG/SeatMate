@@ -91,13 +91,24 @@ class SeatAssignment {
             // PostgreSQL 함수를 호출하여 사용 가능한 좌석 찾기
             if (window.supabaseUtils) {
                 console.log(`PostgreSQL 함수를 통해 사용 가능한 좌석 찾기 시도 (${gender})`);
-                const seatNumber = await window.supabaseUtils.findAvailableSeat(gender);
+                console.log('supabaseUtils 객체 확인:', window.supabaseUtils);
+                console.log('findAvailableSeat 함수 존재 여부:', !!window.supabaseUtils.findAvailableSeat);
                 
-                if (seatNumber) {
-                    console.log(`PostgreSQL 함수로 찾은 다음 사용 가능한 좌석: ${seatNumber}`);
-                    return seatNumber;
+                try {
+                    const seatNumber = await window.supabaseUtils.findAvailableSeat(gender);
+                    console.log('PostgreSQL 함수 결과:', seatNumber);
+                    
+                    if (seatNumber) {
+                        console.log(`PostgreSQL 함수로 찾은 다음 사용 가능한 좌석: ${seatNumber}`);
+                        return seatNumber;
+                    }
+                } catch (funcError) {
+                    console.error('PostgreSQL 함수 호출 오류:', funcError);
                 }
+                
                 console.log('PostgreSQL 함수로 사용 가능한 좌석을 찾지 못함, 기본 방식으로 전환');
+            } else {
+                console.warn('supabaseUtils 객체가 없습니다. 기본 방식으로 전환합니다.');
             }
             
             // 기본 방식: Supabase 쿼리 사용
@@ -253,31 +264,109 @@ class SeatAssignment {
     // Supabase에 좌석 할당 정보 저장 - PostgreSQL 함수를 사용한 경쟁 상태(race condition) 방지
     async saveSeatToSupabase(seatNumber) {
         try {
-            console.log(`💾 Supabase에 좌석 저장 시도: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
+            console.log(`💾 Supabase에 좌석 저장 시도: 좌석 ${seatNumber}, 성별 ${this.selectedGender}, 사용자 ID ${this.userId}`);
+            
+            // Supabase 연결 확인
+            if (!supabase) {
+                console.error('❌ Supabase 클라이언트가 초기화되지 않았습니다.');
+                throw new Error('Supabase 연결을 사용할 수 없습니다. 재시도해주세요.');
+            }
             
             // PostgreSQL 함수를 호출하여 좌석 할당 (원자적 트랜잭션 사용)
             if (!window.supabaseUtils) {
-                throw new Error('Supabase 유틸리티 함수를 찾을 수 없습니다.');
+                console.warn('⚠️ Supabase 유틸리티 함수를 찾을 수 없습니다. window.supabaseUtils:', window.supabaseUtils);
+                console.log('ℹ️ 대체 방법: 직접 RPC 호출 시도합니다.');
+                
+                // 대체 방법: 직접 RPC 호출 시도
+                if (supabase && supabase.rpc) {
+                    try {
+                        console.log('🔄 직접 RPC 호출 시도 - reserve_seat 함수', {
+                            p_seat_number: seatNumber,
+                            p_user_id: this.userId,
+                            p_gender: this.selectedGender
+                        });
+                        
+                        const { data, error } = await supabase.rpc('reserve_seat', {
+                            p_seat_number: seatNumber,
+                            p_user_id: this.userId,
+                            p_gender: this.selectedGender
+                        });
+                        
+                        if (error) {
+                            console.error('❌ 직접 RPC 호출 오류:', error);
+                            
+                            // 오류 메시지 분석
+                            if (error.message.includes('already taken') || 
+                                error.message.includes('이미 사용 중')) {
+                                throw new Error('이미 다른 사용자가 선택한 좌석입니다.');
+                            } else if (error.message.includes('being processed') || 
+                                      error.message.includes('처리 중')) {
+                                throw new Error('현재 다른 사용자가 선택 중인 좌석입니다.');
+                            } else {
+                                throw new Error(`좌석 할당 실패: ${error.message}`);
+                            }
+                        }
+                        
+                        console.log('✅ 직접 RPC 호출 성공:', data);
+                        return { success: true, data };
+                    } catch (rpcError) {
+                        console.error('❌ RPC 호출 중 오류:', rpcError);
+                        throw rpcError;
+                    }
+                } else {
+                    console.error('❌ Supabase RPC 함수를 사용할 수 없습니다.');
+                    throw new Error('Supabase 유틸리티 함수를 찾을 수 없으며, 대체 방법도 사용할 수 없습니다.');
+                }
             }
             
-            const result = await window.supabaseUtils.reserveSeat(
-                seatNumber,
-                this.userId,
-                this.selectedGender
-            );
+            console.log('🔄 reserveSeat 함수 호출 시도:', {
+                seatNumber, 
+                userId: this.userId, 
+                gender: this.selectedGender,
+                reserveSeatFunc: typeof window.supabaseUtils.reserveSeat
+            });
             
-            // 결과 처리
-            if (!result.success) {
-                console.log(`⚠️ 좌석 할당 실패: ${result.message}`);
-                throw new Error(result.message);
+            try {
+                const result = await window.supabaseUtils.reserveSeat(
+                    seatNumber,
+                    this.userId,
+                    this.selectedGender
+                );
+                
+                console.log('💾 reserveSeat 함수 호출 결과:', result);
+                
+                // 결과 처리
+                if (!result) {
+                    console.error('❌ 좌석 할당 실패: 결과가 없습니다.');
+                    throw new Error('좌석 할당에 실패했습니다. 응답을 받지 못했습니다.');
+                }
+                
+                if (!result.success) {
+                    console.warn('⚠️ 좌석 할당 실패:', result.message);
+                    throw new Error(result.message || '좌석 할당에 실패했습니다.');
+                }
+                
+                console.log(`✅ Supabase에 좌석 저장 성공: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
+                return result;
+            } catch (utilsError) {
+                console.error('❌ reserveSeat 함수 호출 중 오류:', utilsError);
+                throw utilsError;
             }
-            
-            console.log(`✅ Supabase에 좌석 저장 성공: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
-            return result;
         } catch (error) {
-            console.error('좌석 저장 오류:', error);
-            // 오류가 발생해도 사용자 경험을 위해 로컬에는 유지
-            // 다음 시도에 자동 동기화 예정
+            console.error('❌ 좌석 저장 오류:', error);
+            
+            // 오류 메시지 가공
+            let errorMessage = error.message || '좌석 할당 중 오류가 발생했습니다.';
+            
+            // 사용자에게 더 유용한 오류 메시지 제공
+            if (errorMessage.includes('network') || errorMessage.includes('네트워크')) {
+                errorMessage = '네트워크 연결 오류가 발생했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.';
+            }
+            
+            // 오류 객체 재구성
+            const enhancedError = new Error(errorMessage);
+            enhancedError.originalError = error;
+            throw enhancedError;
         }
     }
 
@@ -324,22 +413,36 @@ class SeatAssignment {
     // Supabase에서 좌석 데이터 로드
     async loadSeatsFromSupabase() {
         try {
+            console.log('🔄 Supabase에서 좌석 데이터 로드 시작...');
+            
+            // Supabase 연결 확인
+            if (!supabase) {
+                console.error('❌ Supabase 클라이언트가 초기화되지 않았습니다.');
+                return [];
+            }
+            
             // 남성 좌석 데이터 로드
+            console.log('👨 남성 좌석 데이터 로드 시도...');
             const { data: maleData, error: maleError } = await supabase
                 .from('male_seats')
                 .select('*');
                 
             // 여성 좌석 데이터 로드
+            console.log('👩 여성 좌석 데이터 로드 시도...');
             const { data: femaleData, error: femaleError } = await supabase
                 .from('female_seats')
                 .select('*');
                 
             if (maleError) {
-                console.error('남성 좌석 데이터 로드 오류:', maleError);
+                console.error('❌ 남성 좌석 데이터 로드 오류:', maleError);
+            } else {
+                console.log(`✅ 남성 좌석 ${maleData?.length || 0}개 로드 완료`);
             }
             
             if (femaleError) {
-                console.error('여성 좌석 데이터 로드 오류:', femaleError);
+                console.error('❌ 여성 좌석 데이터 로드 오류:', femaleError);
+            } else {
+                console.log(`✅ 여성 좌석 ${femaleData?.length || 0}개 로드 완료`);
             }
             
             // 좌석 데이터 초기화
@@ -360,6 +463,7 @@ class SeatAssignment {
             
             // 남성과 여성 데이터 합치기
             const combinedData = [...processedMaleData, ...processedFemaleData];
+            console.log(`💾 총 ${combinedData.length}개의 좌석 데이터 로드 완료`);
             
             // 데이터베이스에서 좌석 정보 로드
             this.processSeatsData(combinedData);
@@ -561,32 +665,76 @@ class SeatAssignment {
     // 내 좌석만 초기화 기능
     async resetAllSeats() {
         try {
+            console.log('🔄 내 좌석 초기화 시작...');
+            
+            // Supabase 연결 확인
+            if (!supabase) {
+                console.error('❌ Supabase 클라이언트가 초기화되지 않았습니다.');
+                throw new Error('Supabase 연결을 사용할 수 없습니다. 재시도해주세요.');
+            }
+            
+            // 사용자 ID 확인
+            if (!this.userId) {
+                console.error('❌ 사용자 ID가 없습니다.');
+                throw new Error('사용자 ID를 찾을 수 없습니다. 페이지를 새로고침한 후 다시 시도해주세요.');
+            }
+            
+            console.log(`👨 남성 테이블에서 사용자 ID ${this.userId}의 좌석 삭제 시도...`);
             // 남성 테이블에서 현재 사용자의 좌석 데이터 삭제
-            const { error: maleError } = await supabase
+            const { data: maleData, error: maleError } = await supabase
                 .from('male_seats')
                 .delete()
-                .eq('user_id', this.userId);
+                .eq('user_id', this.userId)
+                .select();
                 
+            console.log(`👩 여성 테이블에서 사용자 ID ${this.userId}의 좌석 삭제 시도...`);
             // 여성 테이블에서 현재 사용자의 좌석 데이터 삭제
-            const { error: femaleError } = await supabase
+            const { data: femaleData, error: femaleError } = await supabase
                 .from('female_seats')
                 .delete()
-                .eq('user_id', this.userId);
+                .eq('user_id', this.userId)
+                .select();
                 
-            if (maleError) console.error('남성 좌석 삭제 오류:', maleError);
-            if (femaleError) console.error('여성 좌석 삭제 오류:', femaleError);
+            // 오류 처리 및 로깅
+            if (maleError) {
+                console.error('❌ 남성 좌석 삭제 오류:', maleError);
+            } else {
+                console.log(`✅ 남성 좌석 ${maleData?.length || 0}개 삭제 완료`);
+            }
+            
+            if (femaleError) {
+                console.error('❌ 여성 좌석 삭제 오류:', femaleError);
+            } else {
+                console.log(`✅ 여성 좌석 ${femaleData?.length || 0}개 삭제 완료`);
+            }
+            
+            // 심각한 오류가 있는지 확인
+            if (maleError && femaleError) {
+                throw new Error('좌석 삭제 중 오류가 발생했습니다. 다시 시도해주세요.');
+            }
             
             // 클라이언트 상태 초기화
+            console.log('🔄 클라이언트 상태 초기화 시작...');
             this.resetClientState();
             
             // 다시 좌석 데이터 로드
+            console.log('🔄 좌석 데이터 다시 로드 시작...');
             await this.loadSeatsFromSupabase();
             
             console.log('🟢 성공: 내 좌석이 초기화되었습니다.');
+            alert('좌석이 성공적으로 초기화되었습니다.');
             return true;
         } catch (error) {
-            console.error('좌석 초기화 중 오류 발생:', error);
-            alert('좌석 초기화 중 오류가 발생했습니다.');
+            console.error('❌ 좌석 초기화 중 오류 발생:', error);
+            
+            // 사용자에게 더 유용한 오류 메시지 제공
+            let errorMessage = error.message || '좌석 초기화 중 오류가 발생했습니다.';
+            
+            if (errorMessage.includes('network') || errorMessage.includes('네트워크')) {
+                errorMessage = '네트워크 연결 오류가 발생했습니다. 인터넷 연결을 확인하고 다시 시도해주세요.';
+            }
+            
+            alert(errorMessage);
             return false;
         }
     }

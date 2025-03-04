@@ -3,17 +3,30 @@
 let SUPABASE_URL = null;
 let SUPABASE_KEY = null;
 
+// 현재 환경이 Netlify인지 확인
+const isNetlify = window.location.hostname.includes('netlify.app') || 
+                 window.location.hostname !== 'localhost';
+
+console.log(`🔍 현재 실행 환경: ${isNetlify ? 'Netlify' : '로컬 개발'} (${window.location.hostname})`);
+
 // 환경 변수에서 설정 가져오기 시도
 async function fetchSupabaseConfig() {
+  console.log('📢 Netlify 함수 호출 시도: /.netlify/functions/get-supabase-config');
   try {
     const response = await fetch('/.netlify/functions/get-supabase-config');
+    console.log('📢 Netlify 함수 응답 상태:', response.status);
+    
     if (response.ok) {
       const data = await response.json();
+      console.log('📢 Netlify 함수 응답 데이터:', data);
+      
       if (data.url && data.key) {
         SUPABASE_URL = data.url;
         SUPABASE_KEY = data.key;
         console.info('✅ Supabase 설정을 환경 변수에서 가져왔습니다.');
         return true;
+      } else {
+        console.error('❌ Netlify 함수 응답에 URL 또는 Key가 없습니다:', data);
       }
     } else {
       // 응답이 성공적이지 않은 경우 오류 메시지 표시
@@ -36,27 +49,86 @@ async function fetchSupabaseConfig() {
 
 // 설정 가져오기 실행 및 Supabase 초기화
 async function initializeSupabase() {
-  // 환경 변수에서 설정 가져오기
-  const configLoaded = await fetchSupabaseConfig();
-  
-  // 설정이 없으면 애플리케이션 중지
-  if (!configLoaded || !SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('❌ Supabase 설정이 없어 애플리케이션을 시작할 수 없습니다.');
-    document.body.innerHTML = `
-      <div style="text-align: center; margin-top: 100px; font-family: sans-serif;">
-        <h1 style="color: #e74c3c;">서버 설정 오류</h1>
-        <p>필요한 환경 변수가 설정되지 않아 애플리케이션을 시작할 수 없습니다.</p>
-        <p>관리자에게 문의해주세요.</p>
-      </div>
-    `;
-    return false;
+  // 로컬 개발 환경과 Netlify 환경 구분
+  if (isNetlify) {
+    console.log('📢 Netlify 환경 감지: 환경 변수에서 설정을 가져옵니다.');
+    // 환경 변수에서 설정 가져오기
+    const configLoaded = await fetchSupabaseConfig();
+    
+    // 설정이 없으면 애플리케이션 중지
+    if (!configLoaded || !SUPABASE_URL || !SUPABASE_KEY) {
+      console.error('❌ Supabase 설정이 없어 애플리케이션을 시작할 수 없습니다.');
+      document.body.innerHTML = `
+        <div style="text-align: center; margin-top: 100px; font-family: sans-serif;">
+          <h1 style="color: #e74c3c;">서버 설정 오류</h1>
+          <p>필요한 환경 변수가 설정되지 않아 애플리케이션을 시작할 수 없습니다.</p>
+          <p>관리자에게 문의해주세요.</p>
+        </div>
+      `;
+      return false;
+    }
+  } else {
+    // 로컬 개발 환경에서는 하드코딩된 값 사용 (개발용, 배포 시 제거 필요)
+    console.log('📢 로컬 개발 환경 감지: 로컬 설정을 사용합니다.');
+    
+    // 로컬 개발 서버 URL 및 키 설정 (실제 값으로 변경 필요)
+    // 주의: 이 값들은 개발 환경에서만 사용하고, 배포 시에는 환경 변수를 사용해야 함
+    SUPABASE_URL = 'https://your-project-id.supabase.co';
+    SUPABASE_KEY = 'your-anon-key';
+    
+    // 개발 환경 알림
+    console.warn('⚠️ 로컬 개발 환경에서 하드코딩된 Supabase 설정을 사용 중입니다.');
+    console.warn('⚠️ 배포 시에는 반드시 환경 변수를 사용해야 합니다.');
   }
   
   return true;
 }
 
+// 비동기 초기화 순서 보장
+async function initializeApp() {
+  console.log('🚀 앱 초기화 시작');
+  const supabaseInitialized = await initializeSupabase();
+  
+  if (supabaseInitialized) {
+    // Supabase 클라이언트 초기화
+    const clientInitialized = initSupabase();
+    
+    if (clientInitialized) {
+      // Supabase 연결 테스트
+      await testSupabaseConnection();
+      
+      // 실시간 구독 설정
+      await setupRealtimeSubscription();
+      console.log('✅ 앱 초기화 완료: Supabase 및 실시간 구독 설정됨');
+    } else {
+      console.error('❌ Supabase 클라이언트 초기화 실패');
+    }
+  } else {
+    console.error('❌ Supabase 초기화 실패로 앱 초기화 중단');
+  }
+}
+
+// Supabase 연결 테스트 함수
+async function testSupabaseConnection() {
+  try {
+    console.log('🔍 Supabase 연결 테스트 시작...');
+    const { data, error } = await supabase.from('system_info').select('*').limit(1);
+    
+    if (error) {
+      console.error('❌ Supabase 연결 테스트 실패:', error);
+      return false;
+    }
+    
+    console.log('✅ Supabase 연결 테스트 성공:', data);
+    return true;
+  } catch (e) {
+    console.error('❌ Supabase 연결 테스트 중 예외 발생:', e);
+    return false;
+  }
+}
+
 // 초기화 실행
-initializeSupabase();
+initializeApp();
 
 // 주의: 배포 시에는 반드시 Netlify 환경 변수에 SUPABASE_URL과 SUPABASE_KEY를 설정해야 합니다.
 
@@ -66,17 +138,34 @@ let supabase;
 // 실제 클라이언트 초기화 함수
 function initSupabase() {
   try {
+    console.log('📢 Supabase 클라이언트 초기화 시도...');
+    console.log('📢 SUPABASE_URL:', SUPABASE_URL ? '설정됨' : '설정되지 않음');
+    console.log('📢 SUPABASE_KEY:', SUPABASE_KEY ? '설정됨' : '설정되지 않음');
+    
+    // URL과 키가 설정되었는지 확인
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      console.error('❌ Supabase URL 또는 Key가 설정되지 않았습니다.');
+      supabase = createFallbackClient();
+      console.info('ℹ️ 로컬 모드로 실행됩니다. 좌석 정보가 서버에 저장되지 않습니다.');
+      return false;
+    }
+    
     // 이미 정의된 객체인지 확인
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
+      console.log('📢 window.supabase.createClient 함수 발견, 클라이언트 생성 중...');
       supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       console.info('✅ Supabase가 초기화되었습니다.');
       return true;
     } else {
       console.warn('⚠️ Supabase 객체를 찾을 수 없습니다. 로컬 모드로 전환합니다.');
+      supabase = createFallbackClient();
+      console.info('ℹ️ 로컬 모드로 실행됩니다. 좌석 정보가 서버에 저장되지 않습니다.');
       return false;
     }
   } catch (error) {
     console.error('❌ Supabase 초기화 오류:', error);
+    supabase = createFallbackClient();
+    console.info('ℹ️ 오류로 인해 로컬 모드로 실행됩니다. 좌석 정보가 서버에 저장되지 않습니다.');
     return false;
   }
 }
@@ -98,11 +187,8 @@ function createFallbackClient() {
   };
 }
 
-// 초기화 실행
-if (!initSupabase()) {
-  supabase = createFallbackClient();
-  console.info('ℹ️ 로컬 모드로 실행됩니다. 좌석 정보가 서버에 저장되지 않습니다.');
-}
+// 초기화는 initializeApp()에서 처리하므로 여기서는 실행하지 않음
+// 폴백 클라이언트 생성 로직은 initSupabase() 함수 내에서 처리
 
 // 실시간 구독 설정 (오류 처리 개선)
 async function setupRealtimeSubscription() {
