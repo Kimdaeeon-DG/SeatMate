@@ -64,15 +64,17 @@ async function setupRealtimeSubscription() {
       .on('broadcast', { event: 'seats-reset' }, payload => {
         console.log('🔄 좌석 초기화 브로드캐스트 메시지 수신:', payload);
         
-        // 로컬 스토리지 초기화
-        localStorage.removeItem('userSeat');
+        // 로컬 스토리지 초기화 - 모든 사용자의 좌석 정보 삭제
+        localStorage.clear(); // 모든 로컬 스토리지 삭제
         
         // 좌석 초기화 이벤트 발생
         const resetEvent = new CustomEvent('seatsReset');
         window.dispatchEvent(resetEvent);
         
         // 페이지 새로고침 - 모든 상태를 완전히 초기화하기 위해 필요
-        window.location.reload();
+        setTimeout(() => {
+          window.location.reload();
+        }, 500); // 이벤트가 완전히 처리되도록 약간의 딜레이 추가
       })
       .subscribe((status) => {
         console.log(`실시간 구독 상태: ${status}`);

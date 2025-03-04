@@ -288,8 +288,16 @@ class SeatAssignment {
     
     // 클라이언트 상태 초기화 공통 함수
     resetClientState() {
-        // 로컬 스토리지 초기화
-        localStorage.removeItem('userSeat');
+        console.log('📢 클라이언트 상태 초기화 시작');
+        
+        // 로컬 스토리지 완전 초기화 - 사용자 ID는 유지
+        const userId = localStorage.getItem('userId');
+        localStorage.clear();
+        if (userId) {
+            localStorage.setItem('userId', userId);
+        }
+        
+        console.log('📢 로컬 스토리지 초기화 완료');
         
         // 메모리에서 할당된 좌석 초기화
         this.maleAssignments.clear();
@@ -306,6 +314,8 @@ class SeatAssignment {
         // 좌석 표시 초기화
         this.resetSeatDisplay();
         this.seatNumberDisplay.textContent = '좌석을 선택해주세요';
+        
+        console.log('📢 클라이언트 상태 초기화 완료');
     }
     
     // 내 좌석만 초기화 기능
@@ -337,6 +347,8 @@ class SeatAssignment {
     // 모든 사용자의 좌석 초기화 기능 (관리자용)
     async resetAllSeatsForEveryone(adminPassword) {
         try {
+            console.log('📢 모든 사용자의 좌석 초기화 시작');
+            
             // 관리자 비밀번호 확인
             if (adminPassword !== this.adminPassword) {
                 console.error('🔴 관리자 인증 실패: 비밀번호가 올바르지 않습니다.');
@@ -344,12 +356,18 @@ class SeatAssignment {
             }
             
             // 서버에서 모든 좌석 삭제
+            console.log('📢 Supabase에서 모든 좌석 데이터 삭제 중...');
             const { error } = await supabase
                 .from('seats')
                 .delete()
                 .neq('id', 0);
                 
-            if (error) throw error;
+            if (error) {
+                console.error('🔴 Supabase 삭제 오류:', error);
+                throw error;
+            }
+            
+            console.log('🟢 Supabase 좌석 데이터 삭제 성공');
             
             // 클라이언트 상태 초기화
             this.resetClientState();
@@ -364,9 +382,16 @@ class SeatAssignment {
             window.dispatchEvent(resetEvent);
             
             // 모든 클라이언트에 좌석 초기화 메시지 브로드캐스트
+            console.log('📢 모든 클라이언트에 초기화 메시지 브로드캐스트 시작');
             await this.broadcastResetEvent();
             
-            alert('모든 사용자의 좌석이 초기화되었습니다.');
+            // 새로고침을 위한 지연 추가
+            setTimeout(() => {
+                alert('모든 사용자의 좌석이 초기화되었습니다.');
+                
+                // 현재 페이지도 새로고침하여 완전히 초기화
+                window.location.reload();
+            }, 1000);
             
             return true;
         } catch (error) {
