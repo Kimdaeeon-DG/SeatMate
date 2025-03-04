@@ -9,14 +9,17 @@ class SeatAssignment {
         this.userId = this.generateOrGetUserId();
         this.userSeat = this.loadUserSeat();
         this.adminPassword = 'love1030'; // 관리자 비밀번호 중앙 관리
+        this.lastResetTimestamp = localStorage.getItem('lastResetTimestamp') || '0';
 
         // 초기화 및 설정
         this.initializeElements();
         this.initializeEventListeners();
         this.createSeatGrid();
         
-        // Supabase에서 좌석 데이터 로드
-        this.loadSeatsFromSupabase().then(() => {
+        // Supabase에서 좌석 데이터 로드 및 로컬 스토리지 동기화
+        this.loadSeatsFromSupabase().then((data) => {
+            // 서버에 좌석 데이터가 없으면 로컬 스토리지 초기화 검토
+            this.checkResetStatus(data);
             this.loadAndDisplayUserSeat();
         });
         
@@ -248,6 +251,56 @@ class SeatAssignment {
         });
     }
     
+    // 초기화 상태 확인 - 서버에 데이터가 없지만 로컬에 있는 경우 초기화
+    checkResetStatus(serverData) {
+        console.log('📢 초기화 상태 확인 시작');
+        
+        // 서버에 데이터가 없고 로컬에 좌석 정보가 있는 경우
+        if (serverData.length === 0 && this.userSeat) {
+            console.log('📢 서버에 데이터가 없지만 로컬에 좌석 정보가 있음 - 초기화 필요');
+            
+            // 서버에 데이터가 없는 경우 = 초기화가 이미 이루어졌을 가능성
+            // 로컬 스토리지 초기화
+            this.resetClientState();
+            return true;
+        }
+        
+        // 서버에 데이터가 있지만 현재 사용자의 좌석이 없는 경우 확인
+        if (serverData.length > 0 && this.userSeat) {
+            const userSeatExists = serverData.some(seat => 
+                seat.user_id === this.userId && 
+                seat.seat_number === this.userSeat.number);
+                
+            if (!userSeatExists) {
+                console.log('📢 서버에 현재 사용자의 좌석 정보가 없음 - 로컬 스토리지 초기화');
+                this.resetClientState();
+                return true;
+            }
+        }
+        
+        // 서버에서 초기화 타임스태프 확인 가능한 경우
+        if (serverData.length > 0) {
+            // 초기화 정보가 있는지 확인
+            const resetInfo = serverData.find(item => item.reset_timestamp);
+            if (resetInfo && resetInfo.reset_timestamp) {
+                const serverResetTime = new Date(resetInfo.reset_timestamp).getTime();
+                const localResetTime = new Date(this.lastResetTimestamp).getTime();
+                
+                // 서버의 초기화 시간이 로컬보다 더 최신이면 로컬 스토리지 초기화
+                if (serverResetTime > localResetTime) {
+                    console.log('📢 서버의 초기화 시간이 로컬보다 더 최신임 - 로컬 스토리지 초기화');
+                    this.lastResetTimestamp = resetInfo.reset_timestamp;
+                    localStorage.setItem('lastResetTimestamp', resetInfo.reset_timestamp);
+                    this.resetClientState();
+                    return true;
+                }
+            }
+        }
+        
+        console.log('📢 초기화 상태 확인 완료 - 초기화 필요 없음');
+        return false;
+    }
+    
     // 실시간 업데이트 리스너 설정
     setupRealtimeListener() {
         // 서버에서 좌석 업데이트 이벤트 수신
@@ -257,8 +310,16 @@ class SeatAssignment {
         });
         
         // 좌석 초기화 이벤트 수신
-        window.addEventListener('seatsReset', async () => {
-            console.log('🔄 좌석 초기화 이벤트 수신');
+        window.addEventListener('seatsReset', async (event) => {
+            console.log('🔄 좌석 초기화 이벤트 수신', event.detail ? `(ID: ${event.detail.resetId})` : '');
+            
+            // 초기화 타임스태프 업데이트
+            if (event.detail && event.detail.timestamp) {
+                this.lastResetTimestamp = event.detail.timestamp;
+                localStorage.setItem('lastResetTimestamp', event.detail.timestamp);
+                console.log('🔄 초기화 타임스태프 업데이트:', this.lastResetTimestamp);
+            }
+            
             this.resetClientState();
             await this.loadSeatsFromSupabase();
         });
@@ -296,6 +357,11 @@ class SeatAssignment {
         if (userId) {
             localStorage.setItem('userId', userId);
         }
+        
+        // 초기화 타임스태프 저장 - 오프라인 기기 동기화를 위해
+        const resetTimestamp = new Date().toISOString();
+        localStorage.setItem('lastResetTimestamp', resetTimestamp);
+        this.lastResetTimestamp = resetTimestamp;
         
         console.log('📢 로컬 스토리지 초기화 완료');
         

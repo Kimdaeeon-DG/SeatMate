@@ -64,17 +64,37 @@ async function setupRealtimeSubscription() {
       .on('broadcast', { event: 'seats-reset' }, payload => {
         console.log('🔄 좌석 초기화 브로드캐스트 메시지 수신:', payload);
         
+        // 초기화 타임스태프 저장
+        if (payload.payload && payload.payload.timestamp) {
+            localStorage.setItem('lastResetTimestamp', payload.payload.timestamp);
+        }
+        
+        // 사용자 ID 보존
+        const userId = localStorage.getItem('userId');
+        
         // 로컬 스토리지 초기화 - 모든 사용자의 좌석 정보 삭제
         localStorage.clear(); // 모든 로컬 스토리지 삭제
         
+        // 사용자 ID 유지
+        if (userId) {
+            localStorage.setItem('userId', userId);
+        }
+        
+        // 초기화 타임스태프 다시 저장
+        if (payload.payload && payload.payload.timestamp) {
+            localStorage.setItem('lastResetTimestamp', payload.payload.timestamp);
+        }
+        
         // 좌석 초기화 이벤트 발생
-        const resetEvent = new CustomEvent('seatsReset');
+        const resetEvent = new CustomEvent('seatsReset', { 
+            detail: payload.payload 
+        });
         window.dispatchEvent(resetEvent);
         
         // 페이지 새로고침 - 모든 상태를 완전히 초기화하기 위해 필요
         setTimeout(() => {
           window.location.reload();
-        }, 500); // 이벤트가 완전히 처리되도록 약간의 딜레이 추가
+        }, 1000); // 이벤트가 완전히 처리되도록 딜레이 증가
       })
       .subscribe((status) => {
         console.log(`실시간 구독 상태: ${status}`);
@@ -103,10 +123,51 @@ async function setupRealtimeSubscription() {
 async function broadcastSeatsReset() {
   try {
     if (window.supabaseChannel) {
+      const resetTimestamp = new Date().toISOString();
+      const resetId = 'reset_' + Math.random().toString(36).substring(2, 15);
+      
+      // 로컬에도 초기화 타임스태프 저장
+      localStorage.setItem('lastResetTimestamp', resetTimestamp);
+      
+      // 초기화 타임스태프를 Supabase에 저장
+      try {
+        // 기존 초기화 레코드 삭제
+        await supabase
+          .from('seats')
+          .delete()
+          .eq('seat_number', -1);
+          
+        // 새 초기화 레코드 추가
+        const { error: insertError } = await supabase
+          .from('seats')
+          .insert([
+            {
+              seat_number: -1, // 특별한 값으로 초기화 정보를 저장
+              user_id: 'system',
+              gender: 'system',
+              reset_timestamp: resetTimestamp,
+              reset_id: resetId
+            }
+          ]);
+          
+        if (insertError) {
+          console.error('❌ 초기화 타임스태프 저장 오류:', insertError);
+        } else {
+          console.log('✅ 초기화 타임스태프 저장 성공');
+        }
+      } catch (dbError) {
+        console.error('❌ 초기화 타임스태프 저장 중 오류:', dbError);
+        // 데이터베이스 오류가 발생해도 브로드캐스트는 계속 진행
+      }
+      
       await window.supabaseChannel.send({
         type: 'broadcast',
         event: 'seats-reset',
-        payload: { message: 'all-seats-reset', timestamp: new Date().toISOString() }
+        payload: { 
+          message: 'all-seats-reset', 
+          timestamp: resetTimestamp,
+          resetId: resetId
+        }
       });
       console.log('🔄 좌석 초기화 브로드캐스트 메시지 전송 완료');
       return true;
