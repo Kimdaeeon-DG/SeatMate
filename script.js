@@ -503,13 +503,20 @@ class SeatAssignment {
     // 내 좌석만 초기화 기능
     async resetAllSeats() {
         try {
-            // Supabase에서 현재 사용자의 좌석 데이터만 삭제
-            const { error } = await supabase
-                .from('seats')
+            // 남성 테이블에서 현재 사용자의 좌석 데이터 삭제
+            const { error: maleError } = await supabase
+                .from('male_seats')
                 .delete()
                 .eq('user_id', this.userId);
                 
-            if (error) throw error;
+            // 여성 테이블에서 현재 사용자의 좌석 데이터 삭제
+            const { error: femaleError } = await supabase
+                .from('female_seats')
+                .delete()
+                .eq('user_id', this.userId);
+                
+            if (maleError) console.error('남성 좌석 삭제 오류:', maleError);
+            if (femaleError) console.error('여성 좌석 삭제 오류:', femaleError);
             
             // 클라이언트 상태 초기화
             this.resetClientState();
@@ -539,14 +546,25 @@ class SeatAssignment {
             
             // 서버에서 모든 좌석 삭제
             console.log('📢 Supabase에서 모든 좌석 데이터 삭제 중...');
-            const { error } = await supabase
-                .from('seats')
+            
+            // 남성 테이블 삭제
+            const { error: maleError } = await supabase
+                .from('male_seats')
                 .delete()
-                .neq('id', 0);
+                .neq('seat_number', 0);
                 
-            if (error) {
-                console.error('🔴 Supabase 삭제 오류:', error);
-                throw error;
+            // 여성 테이블 삭제
+            const { error: femaleError } = await supabase
+                .from('female_seats')
+                .delete()
+                .neq('seat_number', 0);
+                
+            if (maleError) {
+                console.error('🔴 남성 테이블 삭제 오류:', maleError);
+            }
+            
+            if (femaleError) {
+                console.error('🔴 여성 테이블 삭제 오류:', femaleError);
             }
             
             console.log('🟢 Supabase 좌석 데이터 삭제 성공');
