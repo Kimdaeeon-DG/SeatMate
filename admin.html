@@ -171,6 +171,11 @@
                     const resetEvent = new CustomEvent('seatsReset');
                     window.dispatchEvent(resetEvent);
                     
+                    // 상태 메시지 표시 후 새로고침
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                    
                 } catch (error) {
                     console.error('전체 좌석 초기화 중 오류 발생:', error);
                     showMessage(error.message || '전체 좌석 초기화 중 오류가 발생했습니다.', 'error');

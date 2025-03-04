@@ -71,12 +71,8 @@ async function setupRealtimeSubscription() {
       // 로컬 스토리지 초기화
       localStorage.removeItem('userSeat');
       
-      // 페이지 새로고침 (선택적)
-      // window.location.reload();
-      
-      // 이벤트 발생
-      const resetCompleteEvent = new CustomEvent('seatsResetComplete');
-      window.dispatchEvent(resetCompleteEvent);
+      // 페이지 새로고침 - 모든 상태를 완전히 초기화하기 위해 필요
+      window.location.reload();
     });
     
     console.log('✅ 실시간 구독이 설정되었습니다.');
