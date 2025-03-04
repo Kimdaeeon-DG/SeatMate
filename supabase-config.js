@@ -192,8 +192,29 @@ async function createTableIfNotExists() {
     
     if (error) {
       console.warn('테이블이 존재하지 않을 수 있습니다. 로컬 모드로 작동합니다.');
+      console.log('테이블 구조 확인 필요: Supabase 대시보드에서 다음 구조로 테이블을 설정해야 합니다:');
+      console.log('- seat_number: integer (primary key)');
+      console.log('- gender: text (not null)');
+      console.log('- user_id: text (not null)');
+      console.log('- created_at: timestamp with time zone (default: now())');
+      console.log('\n중요: seat_number와 gender를 함께 복합 고유 제약조건으로 설정해야 합니다.');
     } else {
       console.log('✅ 테이블이 존재합니다.');
+      
+      // 테이블 구조 확인 시도
+      try {
+        // 좌석 데이터 샘플 가져오기
+        const { data: sampleData, error: sampleError } = await supabase
+          .from('seats')
+          .select('*')
+          .limit(1);
+          
+        if (!sampleError && sampleData && sampleData.length > 0) {
+          console.log('현재 테이블 구조 샘플:', sampleData[0]);
+        }
+      } catch (sampleError) {
+        console.error('테이블 구조 확인 오류:', sampleError);
+      }
     }
   } catch (error) {
     console.error('❌ 테이블 확인 중 오류:', error);

@@ -163,17 +163,72 @@ class SeatAssignment {
     
     // Supabase에 좌석 할당 정보 저장
     async saveSeatToSupabase(seatNumber) {
-        const { error } = await supabase
-            .from('seats')
-            .insert([
-                { 
-                    seat_number: seatNumber, 
-                    gender: this.selectedGender,
-                    user_id: this.userId
+        try {
+            console.log(`💾 Supabase에 좌석 저장 시도: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
+            
+            // 좌석 번호와 성별, 사용자 ID로 기존 데이터가 있는지 확인
+            const { data: existingData, error: fetchError } = await supabase
+                .from('seats')
+                .select('*')
+                .eq('seat_number', seatNumber)
+                .eq('gender', this.selectedGender);
+                
+            if (fetchError) {
+                throw new Error(`기존 데이터 확인 오류: ${fetchError.message}`);
+            }
+            
+            // 기존 같은 성별의 데이터가 있는지 확인
+            if (existingData && existingData.length > 0) {
+                // 같은 성별의 데이터가 이미 있음 - 새로운 사용자 ID로 업데이트
+                console.log(`⚠️ 같은 성별 데이터 발견: 업데이트 시도`);
+                const updateResult = await supabase
+                    .from('seats')
+                    .update({ user_id: this.userId })
+                    .eq('seat_number', seatNumber)
+                    .eq('gender', this.selectedGender);
+                    
+                if (updateResult.error) {
+                    throw new Error(`좌석 업데이트 오류: ${updateResult.error.message}`);
                 }
-            ]);
-
-        if (error) {
+                
+                console.log(`✅ 기존 좌석 업데이트 성공: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
+            } else {
+                // 새로운 데이터 삽입 - 다른 성별의 데이터가 있을 수 있음
+                console.log(`➕ 새 데이터 삽입 시도`);
+                const result = await supabase
+                    .from('seats')
+                    .insert([
+                        { 
+                            seat_number: seatNumber, 
+                            gender: this.selectedGender,
+                            user_id: this.userId
+                        }
+                    ]);
+                
+                if (result.error) {
+                    // 중복 오류가 발생하면 업데이트 시도
+                    if (result.error.code === '23505') { // 중복 제약 조건 위방 코드
+                        console.log(`⚠️ 중복 오류 발생: 업데이트 시도`);
+                        // 이미 존재하는 데이터를 업데이트
+                        const updateResult = await supabase
+                            .from('seats')
+                            .update({ user_id: this.userId })
+                            .eq('seat_number', seatNumber)
+                            .eq('gender', this.selectedGender);
+                            
+                        if (updateResult.error) {
+                            throw new Error(`좌석 업데이트 오류: ${updateResult.error.message}`);
+                        }
+                        
+                        console.log(`✅ 좌석 업데이트 성공: ${seatNumber}, 성별 ${this.selectedGender}`);
+                    } else {
+                        throw new Error(`좌석 저장 오류: ${result.error.message}`);
+                    }
+                } else {
+                    console.log(`✅ Supabase에 좌석 저장 성공: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
+                }
+            }
+        } catch (error) {
             console.error('좌석 저장 오류:', error);
             // 오류가 발생해도 사용자 경험을 위해 로컬에는 유지
             // 다음 시도에 자동 동기화 예정
