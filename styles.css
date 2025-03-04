@@ -36,6 +36,7 @@ h1 {
     margin-bottom: 30px;
     color: #333;
     font-size: 2em;
+    white-space: pre-line;
 }
 
 .seat-grid {
