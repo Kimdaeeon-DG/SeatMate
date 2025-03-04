@@ -293,63 +293,8 @@
             const totalRows = 10;
             const totalCols = 4;
             
-            // 관리자 비밀번호 가져오기
-            let correctPassword = null; // 환경 변수에서만 값을 가져오도록 설정
-            
-            // 환경 변수에서 비밀번호 가져오기 시도
-            async function fetchAdminPassword() {
-                try {
-                    // Netlify 함수를 통해 환경 변수 가져오기
-                    const response = await fetch('/.netlify/functions/get-admin-password');
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.password) {
-                            correctPassword = data.password;
-                            console.info('✅ 관리자 비밀번호를 환경 변수에서 가져왔습니다.');
-                            return true;
-                        }
-                    } else {
-                        // 응답이 성공적이지 않은 경우 오류 메시지 표시
-                        const errorData = await response.json();
-                        console.error('❌ 관리자 비밀번호 오류:', errorData.error);
-                        alert('관리자 설정 오류: ' + errorData.error);
-                        return false;
-                    }
-                } catch (error) {
-                    console.error('❌ 환경 변수에서 관리자 비밀번호를 가져오는 데 실패했습니다:', error);
-                    alert('서버 연결 오류: Netlify 함수에 연결할 수 없습니다. 관리자에게 문의해주세요.');
-                    return false;
-                }
-                
-                // 비밀번호가 없는 경우
-                console.error('❌ 관리자 비밀번호를 가져올 수 없습니다.');
-                alert('관리자 설정 오류: 비밀번호를 가져올 수 없습니다. 관리자에게 문의해주세요.');
-                return false;
-            }
-            
-            // 비밀번호 가져오기 실행 및 관리자 페이지 초기화
-            async function initializeAdminPage() {
-                // 환경 변수에서 비밀번호 가져오기
-                const passwordLoaded = await fetchAdminPassword();
-                
-                // 비밀번호가 없으면 관리자 페이지 중지
-                if (!passwordLoaded || !correctPassword) {
-                    console.error('❌ 관리자 비밀번호가 없어 관리자 페이지를 시작할 수 없습니다.');
-                    document.body.innerHTML = `
-                        <div style="text-align: center; margin-top: 100px; font-family: sans-serif;">
-                            <h1 style="color: #e74c3c;">관리자 설정 오류</h1>
-                            <p>필요한 환경 변수가 설정되지 않아 관리자 페이지를 시작할 수 없습니다.</p>
-                            <p>Netlify 대시보드에서 ADMIN_PASSWORD 환경 변수를 설정해주세요.</p>
-                        </div>
-                    `;
-                    return false;
-                }
-                
-                return true;
-            }
-            
-            // 초기화 실행
-            initializeAdminPage();
+            // 관리자 비밀번호
+            const correctPassword = 'love1030';
             
             // 비밀번호 확인 버튼 클릭 이벤트
             loginBtn.addEventListener('click', function() {
