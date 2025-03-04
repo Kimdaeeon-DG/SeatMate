@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <style>
         .admin-container {
-            max-width: 600px;
+            max-width: 800px;
             margin: 0 auto;
             padding: 20px;
             background-color: #f8f9fa;
@@ -104,6 +104,88 @@
         .hidden {
             display: none;
         }
+        
+        /* 좌석 그리드 스타일 */
+        .admin-seat-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 50px);
+            grid-gap: 5px;
+            grid-column-gap: 15px;
+            margin: 30px auto;
+            background-color: white;
+            padding: 30px 50px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            width: fit-content;
+            justify-content: center;
+        }
+        
+        .admin-seat {
+            width: 50px;
+            height: 40px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-weight: bold;
+            cursor: default;
+            transition: all 0.3s ease;
+            background-color: white;
+        }
+        
+        .admin-seat.male {
+            background-color: var(--male-color);
+            border-color: var(--male-color);
+        }
+        
+        .admin-seat.female {
+            background-color: var(--female-color);
+            border-color: var(--female-color);
+        }
+        
+        .admin-seat.mixed {
+            background-color: #FFD700; /* 금색 */
+            border-color: #FFD700;
+        }
+        
+        .admin-legend {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-top: 15px;
+            margin-bottom: 20px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 0.9em;
+        }
+        
+        .legend-color {
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+        }
+        
+        .legend-male {
+            background-color: var(--male-color);
+        }
+        
+        .legend-female {
+            background-color: var(--female-color);
+        }
+        
+        .legend-mixed {
+            background-color: #FFD700;
+        }
+        
+        .legend-empty {
+            background-color: white;
+            border: 1px solid #ddd;
+        }
     </style>
 </head>
 <body>
@@ -126,6 +208,29 @@
             
             <div id="status-message" class="status-message hidden"></div>
         </div>
+        
+        <div class="admin-legend">
+            <div class="legend-item">
+                <div class="legend-color legend-male"></div>
+                <span>남자</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-female"></div>
+                <span>여자</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-mixed"></div>
+                <span>중복 선택</span>
+            </div>
+            <div class="legend-item">
+                <div class="legend-color legend-empty"></div>
+                <span>비어있음</span>
+            </div>
+        </div>
+        
+        <div class="admin-seat-grid" id="admin-seat-grid">
+            <!-- 좌석이 JavaScript로 생성됩니다 -->
+        </div>
     </div>
     
     <!-- Supabase 설정 -->
@@ -137,6 +242,100 @@
             const backToMainBtn = document.getElementById('back-to-main');
             const adminPasswordInput = document.getElementById('admin-password');
             const statusMessage = document.getElementById('status-message');
+            const adminSeatGrid = document.getElementById('admin-seat-grid');
+            
+            // 총행과 총열 수
+            const totalRows = 10;
+            const totalCols = 4;
+            
+            // 좌석 그리드 생성
+            createAdminSeatGrid();
+            
+            // 초기 좌석 데이터 로드
+            loadAndDisplayAllSeats();
+            
+            // 실시간 업데이트 리스너 설정
+            setupRealtimeListener();
+            
+            // 좌석 그리드 생성 함수
+            function createAdminSeatGrid() {
+                let seatNumber = 1;
+                
+                for (let i = 0; i < totalRows; i++) {
+                    for (let j = 0; j < totalCols; j++) {
+                        const seat = document.createElement('div');
+                        seat.className = 'admin-seat';
+                        seat.textContent = seatNumber++;
+                        seat.dataset.seatNumber = seat.textContent;
+                        
+                        adminSeatGrid.appendChild(seat);
+                    }
+                }
+            }
+            
+            // 모든 좌석 데이터 로드 및 표시
+            async function loadAndDisplayAllSeats() {
+                try {
+                    const { data, error } = await supabase
+                        .from('seats')
+                        .select('*');
+                        
+                    if (error) throw error;
+                    
+                    // 좌석 데이터 분석
+                    const seatOccupancy = {};
+                    
+                    // 모든 좌석 초기화
+                    const seats = document.querySelectorAll('.admin-seat');
+                    seats.forEach(seat => {
+                        seat.classList.remove('male', 'female', 'mixed');
+                    });
+                    
+                    // 데이터베이스에서 좌석 정보 분석
+                    data.forEach(seat => {
+                        const seatNumber = seat.seat_number;
+                        const gender = seat.gender;
+                        
+                        if (!seatOccupancy[seatNumber]) {
+                            seatOccupancy[seatNumber] = [];
+                        }
+                        
+                        seatOccupancy[seatNumber].push(gender);
+                    });
+                    
+                    // 좌석 상태 표시
+                    for (const [seatNumber, genders] of Object.entries(seatOccupancy)) {
+                        const seatIndex = parseInt(seatNumber) - 1;
+                        const seatElement = seats[seatIndex];
+                        
+                        if (!seatElement) continue;
+                        
+                        if (genders.length === 1) {
+                            // 하나의 성별만 있는 경우
+                            seatElement.classList.add(genders[0]);
+                        } else if (genders.length > 1) {
+                            // 중복 선택된 경우
+                            seatElement.classList.add('mixed');
+                        }
+                    }
+                    
+                    console.log('🟢 관리자 페이지: 모든 좌석 데이터 로드 완료');
+                } catch (error) {
+                    console.error('좌석 데이터 로드 중 오류 발생:', error);
+                    showMessage('좌석 데이터를 불러오는 중 오류가 발생했습니다.', 'error');
+                }
+            }
+            
+            // 실시간 업데이트 리스너 설정
+            function setupRealtimeListener() {
+                window.addEventListener('seatsUpdated', () => {
+                    loadAndDisplayAllSeats();
+                });
+                
+                window.addEventListener('seatsReset', () => {
+                    loadAndDisplayAllSeats();
+                });
+            }
             
             // 모든 좌석 초기화 버튼 클릭 이벤트
             resetAllSeatsBtn.addEventListener('click', async function() {

@@ -144,14 +144,21 @@ class SeatAssignment {
     updateSeatDisplay() {
         if (!this.userSeat) return;
 
+        // 모든 좌석 표시 초기화
         const seats = document.querySelectorAll('.seat');
-        const seatIndex = this.userSeat.number - 1;
+        seats.forEach(seat => {
+            seat.classList.remove('male', 'female');
+        });
         
-        seats[seatIndex].classList.add(this.userSeat.gender);
+        // 사용자 자신의 좌석만 표시
+        const seatIndex = this.userSeat.number - 1;
+        if (seats[seatIndex]) {
+            seats[seatIndex].classList.add(this.userSeat.gender);
+        }
         this.seatNumberDisplay.textContent = `${this.userSeat.number}번입니다`;
     }
     
-    // 모든 좌석 표시 업데이트
+    // 좌석 표시 업데이트 - 개인 좌석만 표시
     updateAllSeatsDisplay() {
         // 모든 좌석 표시 초기화
         const seats = document.querySelectorAll('.seat');
@@ -159,24 +166,12 @@ class SeatAssignment {
             seat.classList.remove('male', 'female');
         });
         
-        // 남성 좌석 표시
-        this.maleAssignments.forEach(seatNumber => {
-            const seatIndex = seatNumber - 1;
-            if (seats[seatIndex]) {
-                seats[seatIndex].classList.add('male');
-            }
-        });
-        
-        // 여성 좌석 표시
-        this.femaleAssignments.forEach(seatNumber => {
-            const seatIndex = seatNumber - 1;
-            if (seats[seatIndex]) {
-                seats[seatIndex].classList.add('female');
-            }
-        });
-        
-        // 사용자 좌석 정보 표시
+        // 사용자 자신의 좌석만 표시
         if (this.userSeat) {
+            const seatIndex = this.userSeat.number - 1;
+            if (seats[seatIndex]) {
+                seats[seatIndex].classList.add(this.userSeat.gender);
+            }
             this.seatNumberDisplay.textContent = `${this.userSeat.number}번입니다`;
         }
     }
