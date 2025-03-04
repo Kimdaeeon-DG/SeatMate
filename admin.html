@@ -226,7 +226,7 @@
                 <button id="login-back-btn" class="admin-btn back-btn">메인 페이지로 돌아가기</button>
             </div>
             
-            <div id="login-message" class="status-message hidden"></div>
+            <div id="login-message" class="status-message"></div>
         </div>
         
         <!-- 관리자 페이지 컨텐츠 (초기에는 숨겨져 있음) -->
@@ -298,6 +298,7 @@
             
             // 비밀번호 확인 버튼 클릭 이벤트
             loginBtn.addEventListener('click', function() {
+                console.log('로그인 버튼 클릭됨');
                 const password = loginPasswordInput.value.trim();
                 
                 if (!password) {
@@ -306,6 +307,7 @@
                 }
                 
                 if (password === correctPassword) {
+                    console.log('비밀번호 일치 - 관리자 페이지 표시');
                     // 비밀번호 일치 - 관리자 페이지 표시
                     loginSection.classList.add('hidden');
                     adminContent.classList.remove('hidden');
@@ -315,19 +317,31 @@
                     loadAndDisplayAllSeats();
                     setupRealtimeListener();
                 } else {
+                    console.log('비밀번호 불일치');
                     showLoginMessage('비밀번호가 올바르지 않습니다.', 'error');
                 }
             });
             
             // 비밀번호 화면에서 메인으로 돌아가기 버튼
             loginBackBtn.addEventListener('click', function() {
+                console.log('메인으로 돌아가기 버튼 클릭됨');
                 window.location.href = 'index.html';
+            });
+            
+            // 키보드 이벤트 추가 - 엔터 키 입력 시 로그인 처리
+            loginPasswordInput.addEventListener('keypress', function(event) {
+                if (event.key === 'Enter') {
+                    console.log('엔터 키 입력됨');
+                    loginBtn.click();
+                }
             });
             
             // 비밀번호 화면 메시지 표시 함수
             function showLoginMessage(message, type) {
+                console.log('메시지 표시:', message, type);
                 loginMessage.textContent = message;
                 loginMessage.className = `status-message ${type}`;
+                loginMessage.style.display = 'block';
                 
                 // 3초 후 메시지 숨기기
                 setTimeout(() => {
