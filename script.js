@@ -300,7 +300,7 @@ class SeatAssignment {
             
             this.seatNumberDisplay.textContent = `${this.userSeat.number}번입니다`;
         } else {
-            this.seatNumberDisplay.textContent = '성별 선택 후 선택을 눌러주세요';
+            this.seatNumberDisplay.textContent = '성별을 선택 후좌석 배정 버튼을 눌러주세요.';
         }
     }
     
