@@ -360,8 +360,9 @@
                         
                     if (error) throw error;
                     
-                    // 좌석 데이터 분석
-                    const seatOccupancy = {};
+                    // 좌석 데이터 분석 - 각 좌석별로 성별 배정 정보 수집
+                    const maleSeats = new Set();
+                    const femaleSeats = new Set();
                     
                     // 모든 좌석 초기화
                     const seats = document.querySelectorAll('.admin-seat');
@@ -376,53 +377,47 @@
                     // 데이터베이스에서 좌석 정보 분석
                     console.log('🔍 로드된 좌석 데이터:', data);
                     
+                    // 먼저 각 성별별로 좌석 번호 수집
                     data.forEach(seat => {
-                        const seatNumber = seat.seat_number;
-                        const gender = seat.gender;
+                        // 시스템 메시지나 초기화 정보는 건너뜀
+                        if (seat.seat_number <= 0 || seat.gender === 'system') return;
                         
-                        if (!seatOccupancy[seatNumber]) {
-                            seatOccupancy[seatNumber] = [];
+                        if (seat.gender === 'male') {
+                            maleSeats.add(seat.seat_number);
+                        } else if (seat.gender === 'female') {
+                            femaleSeats.add(seat.seat_number);
                         }
-                        
-                        seatOccupancy[seatNumber].push(gender);
                     });
                     
-                    console.log('🔍 분석된 좌석 점유 데이터:', seatOccupancy);
+                    console.log('🔍 남성 좌석:', [...maleSeats]);
+                    console.log('🔍 여성 좌석:', [...femaleSeats]);
                     
-                    // 좌석 상태 표시
-                    for (const [seatNumber, genders] of Object.entries(seatOccupancy)) {
-                        const seatIndex = parseInt(seatNumber) - 1;
+                    // 모든 좌석에 대해 상태 표시
+                    for (let i = 1; i <= 40; i++) {  // 4x10 = 40 좌석
+                        const seatIndex = i - 1;
                         const seatElement = seats[seatIndex];
                         
-                        if (!seatElement) {
-                            console.warn(`좌석 요소가 없습니다: 좌석번호 ${seatNumber}, 인덱스 ${seatIndex}`);
-                            continue;
-                        }
+                        if (!seatElement) continue;
                         
-                        if (genders.length === 1) {
-                            // 하나의 성별만 있는 경우
-                            console.log(`좌석 ${seatNumber}: 단일 성별 - ${genders[0]}`);
-                            seatElement.classList.add(genders[0]);
-                        } else if (genders.length > 1) {
-                            // 중복 선택된 경우 - 남자와 여자가 모두 있는지 확인
-                            const hasMale = genders.includes('male');
-                            const hasFemale = genders.includes('female');
-                            
-                            console.log(`좌석 ${seatNumber}: 중복 성별 - 남자: ${hasMale}, 여자: ${hasFemale}, 전체: [${genders.join(', ')}]`);
-                            
-                            if (hasMale && hasFemale) {
-                                console.log(`좌석 ${seatNumber}: 남자+여자 혼합 좌석 표시`);
-                                // mixed 클래스 제거 후 다시 추가
-                                seatElement.classList.remove('mixed');
-                                seatElement.classList.add('mixed');
-                                // 직접 스타일 적용
-                                seatElement.style.backgroundColor = '#FFFF99';
-                                seatElement.style.borderColor = '#FFCC00';
-                            } else {
-                                // 남자만 있거나 여자만 있는 경우
-                                console.log(`좌석 ${seatNumber}: 동일 성별 중복 - ${genders[0]}`);
-                                seatElement.classList.add(genders[0]);
-                            }
+                        const hasMale = maleSeats.has(i);
+                        const hasFemale = femaleSeats.has(i);
+                        
+                        if (hasMale && hasFemale) {
+                            // 남성과 여성이 모두 배정된 경우
+                            console.log(`좌석 ${i}: 혼합 성별 좌석`);
+                            seatElement.classList.add('mixed');
+                            // 직접 스타일 적용 (노란색)
+                            seatElement.style.backgroundColor = '#FFFF99';
+                            seatElement.style.borderColor = '#FFCC00';
+                        } else if (hasMale) {
+                            // 남성만 배정된 경우
+                            console.log(`좌석 ${i}: 남성 좌석`);
+                            seatElement.classList.add('male');
+                        } else if (hasFemale) {
+                            // 여성만 배정된 경우
+                            console.log(`좌석 ${i}: 여성 좌석`);
+                            seatElement.classList.add('female');
+                        }
                         }
                     }
                     
