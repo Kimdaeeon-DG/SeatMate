@@ -87,8 +87,11 @@ class SeatAssignment {
     }
 
     getNextAvailableSeat(gender) {
-        const assignments = gender === 'male' ? this.maleAssignments : this.femaleAssignments;
+        // 모든 좌석을 순회하면서 사용자가 선택한 성별에 따라 가능한 좌석 찾기
         for (let i = 1; i <= this.totalRows * this.totalCols; i++) {
+            // 해당 성별로 이미 할당된 좌석이 아니면 선택 가능
+            // 다른 성별이 이미 할당되어 있어도 선택 가능하도록 변경
+            const assignments = gender === 'male' ? this.maleAssignments : this.femaleAssignments;
             if (!assignments.has(i)) {
                 return i;
             }
@@ -103,12 +106,9 @@ class SeatAssignment {
             return;
         }
 
+        // 다음 가능한 좌석 가져오기
         const seatNumber = this.getNextAvailableSeat(this.selectedGender);
-        if (!seatNumber) {
-            alert('더 이상 배정 가능한 좌석이 없습니다.');
-            return;
-        }
-
+        
         try {
             console.log('📍 좌석 할당 시도:', { seatNumber, gender: this.selectedGender, userId: this.userId });
             
@@ -117,6 +117,8 @@ class SeatAssignment {
             
             // Supabase에 좌석 할당 정보 저장
             await this.saveSeatToSupabase(seatNumber);
+            
+            console.log(`✅ 좌석 ${seatNumber}번이 성공적으로 할당되었습니다.`);
             
         } catch (error) {
             console.error('좌석 할당 중 오류 발생:', error);
@@ -127,13 +129,22 @@ class SeatAssignment {
     
     // 좌석 할당 유효성 검사
     validateSeatAssignment() {
+        // 이미 좌석이 배정된 사용자인지 확인
         if (this.userSeat) {
             alert('이미 좌석이 배정되어 있습니다.');
             return false;
         }
 
+        // 성별 선택 여부 확인
         if (!this.selectedGender) {
             alert('성별을 선택해주세요.');
+            return false;
+        }
+        
+        // 모든 좌석이 해당 성별로 이미 할당되었는지 확인
+        const availableSeat = this.getNextAvailableSeat(this.selectedGender);
+        if (availableSeat === null) {
+            alert(`더 이상 ${this.selectedGender === 'male' ? '남성' : '여성'} 좌석이 없습니다.`);
             return false;
         }
         
