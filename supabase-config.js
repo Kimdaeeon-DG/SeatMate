@@ -1,6 +1,64 @@
 // Supabase 설정
-const SUPABASE_URL = 'https://tgshommuzbalotwormis.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnc2hvbW11emJhbG90d29ybWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNzYwOTcsImV4cCI6MjA1NjY1MjA5N30.vzVHHXP9ez7DZQBe7FiApHnBPbc1tfDkk5G9jKjQKG8';
+// 환경 변수에서만 값을 가져오도록 설정
+let SUPABASE_URL = null;
+let SUPABASE_KEY = null;
+
+// 환경 변수에서 설정 가져오기 시도
+async function fetchSupabaseConfig() {
+  try {
+    const response = await fetch('/.netlify/functions/get-supabase-config');
+    if (response.ok) {
+      const data = await response.json();
+      if (data.url && data.key) {
+        SUPABASE_URL = data.url;
+        SUPABASE_KEY = data.key;
+        console.info('✅ Supabase 설정을 환경 변수에서 가져왔습니다.');
+        return true;
+      }
+    } else {
+      // 응답이 성공적이지 않은 경우 오류 메시지 표시
+      const errorData = await response.json();
+      console.error('❌ Supabase 설정 오류:', errorData.error);
+      alert('서버 설정 오류: ' + errorData.error);
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ 환경 변수에서 Supabase 설정을 가져오는 데 실패했습니다:', error);
+    alert('서버 연결 오류: Netlify 함수에 연결할 수 없습니다. 관리자에게 문의해주세요.');
+    return false;
+  }
+  
+  // 설정이 없는 경우
+  console.error('❌ Supabase 설정을 가져올 수 없습니다.');
+  alert('서버 설정 오류: Supabase 설정을 가져올 수 없습니다. 관리자에게 문의해주세요.');
+  return false;
+}
+
+// 설정 가져오기 실행 및 Supabase 초기화
+async function initializeSupabase() {
+  // 환경 변수에서 설정 가져오기
+  const configLoaded = await fetchSupabaseConfig();
+  
+  // 설정이 없으면 애플리케이션 중지
+  if (!configLoaded || !SUPABASE_URL || !SUPABASE_KEY) {
+    console.error('❌ Supabase 설정이 없어 애플리케이션을 시작할 수 없습니다.');
+    document.body.innerHTML = `
+      <div style="text-align: center; margin-top: 100px; font-family: sans-serif;">
+        <h1 style="color: #e74c3c;">서버 설정 오류</h1>
+        <p>필요한 환경 변수가 설정되지 않아 애플리케이션을 시작할 수 없습니다.</p>
+        <p>관리자에게 문의해주세요.</p>
+      </div>
+    `;
+    return false;
+  }
+  
+  return true;
+}
+
+// 초기화 실행
+initializeSupabase();
+
+// 주의: 배포 시에는 반드시 Netlify 환경 변수에 SUPABASE_URL과 SUPABASE_KEY를 설정해야 합니다.
 
 // Supabase 클라이언트 초기화 (오류 처리 추가)
 let supabase;
