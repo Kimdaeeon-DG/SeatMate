@@ -178,9 +178,22 @@ class SeatAssignment {
         if (this.userSeat) {
             const seats = document.querySelectorAll('.seat');
             const seatIndex = this.userSeat.number - 1;
-            if (seats[seatIndex]) {
-                seats[seatIndex].classList.add(this.userSeat.gender);
+            const seatElement = seats[seatIndex];
+            
+            if (seatElement) {
+                // 해당 좌석에 남성과 여성이 모두 할당되었는지 확인
+                const hasMale = this.maleAssignments.has(this.userSeat.number);
+                const hasFemale = this.femaleAssignments.has(this.userSeat.number);
+                
+                if (hasMale && hasFemale) {
+                    // 남성과 여성이 모두 할당된 경우 mixed 클래스 추가
+                    seatElement.classList.add('mixed');
+                } else {
+                    // 그렇지 않은 경우 사용자의 성별에 따라 클래스 추가
+                    seatElement.classList.add(this.userSeat.gender);
+                }
             }
+            
             this.seatNumberDisplay.textContent = `${this.userSeat.number}번입니다`;
         } else {
             this.seatNumberDisplay.textContent = '좌석을 선택해주세요';
@@ -191,7 +204,7 @@ class SeatAssignment {
     resetSeatDisplay() {
         const seats = document.querySelectorAll('.seat');
         seats.forEach(seat => {
-            seat.classList.remove('male', 'female');
+            seat.classList.remove('male', 'female', 'mixed');
         });
     }
 
@@ -232,12 +245,16 @@ class SeatAssignment {
     
     // 서버에서 가져온 좌석 데이터 처리
     processSeatsData(data) {
+        // 좌석별 성별 할당 정보를 임시로 저장할 객체
+        const seatOccupancy = {};
+        
+        // 먼저 각 좌석별로 할당된 성별 정보 수집
         data.forEach(seat => {
-            if (seat.gender === 'male') {
-                this.maleAssignments.add(seat.seat_number);
-            } else if (seat.gender === 'female') {
-                this.femaleAssignments.add(seat.seat_number);
+            const seatNumber = seat.seat_number;
+            if (!seatOccupancy[seatNumber]) {
+                seatOccupancy[seatNumber] = [];
             }
+            seatOccupancy[seatNumber].push(seat.gender);
             
             // 현재 사용자의 좌석인지 확인
             if (seat.user_id === this.userId) {
@@ -249,6 +266,21 @@ class SeatAssignment {
                 this.saveUserSeat();
             }
         });
+        
+        // 수집된 정보를 기반으로 남성/여성 할당 처리
+        for (const [seatNumber, genders] of Object.entries(seatOccupancy)) {
+            const seatNum = parseInt(seatNumber);
+            const hasMale = genders.includes('male');
+            const hasFemale = genders.includes('female');
+            
+            if (hasMale) {
+                this.maleAssignments.add(seatNum);
+            }
+            
+            if (hasFemale) {
+                this.femaleAssignments.add(seatNum);
+            }
+        }
     }
     
     // 초기화 상태 확인 - 서버에 데이터가 없지만 로컬에 있는 경우 초기화
