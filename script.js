@@ -350,11 +350,24 @@ class SeatAssignment {
             await this.loadSeatsFromSupabase();
             
             console.log('🟢 성공: 모든 사용자의 좌석이 초기화되었습니다.');
-            alert('모든 사용자의 좌석이 초기화되었습니다.');
             
-            // 실시간 업데이트를 위해 이벤트 발생
+            // 실시간 업데이트를 위해 이벤트 발생 (로컬 이벤트)
             const resetEvent = new CustomEvent('seatsReset');
             window.dispatchEvent(resetEvent);
+            
+            // 모든 클라이언트에 좌석 초기화 메시지 브로드캐스트
+            if (typeof broadcastSeatsReset === 'function') {
+                const broadcastResult = await broadcastSeatsReset();
+                if (broadcastResult) {
+                    console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
+                } else {
+                    console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
+                }
+            } else {
+                console.warn('⚠️ broadcastSeatsReset 함수를 찾을 수 없습니다. 실시간 업데이트가 일부 클라이언트에 전달되지 않을 수 있습니다.');
+            }
+            
+            alert('모든 사용자의 좌석이 초기화되었습니다.');
             
             return true;
         } catch (error) {

@@ -366,14 +366,26 @@
                     // 성공 메시지 표시
                     showMessage('모든 사용자의 좌석이 초기화되었습니다.', 'success');
                     
-                    // 실시간 업데이트를 위해 이벤트 발생
+                    // 실시간 업데이트를 위해 이벤트 발생 (로컬)
                     const resetEvent = new CustomEvent('seatsReset');
                     window.dispatchEvent(resetEvent);
                     
-                    // 상태 메시지 표시 후 새로고침
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
+                    // 모든 클라이언트에 좌석 초기화 메시지 브로드캐스트
+                    if (typeof broadcastSeatsReset === 'function') {
+                        const broadcastResult = await broadcastSeatsReset();
+                        if (broadcastResult) {
+                            console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
+                        } else {
+                            console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
+                        }
+                    } else {
+                        console.warn('⚠️ broadcastSeatsReset 함수를 찾을 수 없습니다. 실시간 업데이트가 일부 클라이언트에 전달되지 않을 수 있습니다.');
+                    }
+                    
+                    // 좌석 데이터 다시 로드
+                    loadAndDisplayAllSeats();
+                    
+                    // 상태 메시지 표시
                     
                 } catch (error) {
                     console.error('전체 좌석 초기화 중 오류 발생:', error);

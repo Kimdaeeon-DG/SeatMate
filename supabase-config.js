@@ -60,19 +60,33 @@ async function setupRealtimeSubscription() {
         const event = new CustomEvent('seatsUpdated', { detail: payload.new });
         window.dispatchEvent(event);
       })
+      // 브로드캐스트 메시지 리스너 추가 - 좌석 초기화 이벤트 수신
+      .on('broadcast', { event: 'seats-reset' }, payload => {
+        console.log('🔄 좌석 초기화 브로드캐스트 메시지 수신:', payload);
+        
+        // 로컬 스토리지 초기화
+        localStorage.removeItem('userSeat');
+        
+        // 좌석 초기화 이벤트 발생
+        const resetEvent = new CustomEvent('seatsReset');
+        window.dispatchEvent(resetEvent);
+        
+        // 페이지 새로고침 - 모든 상태를 완전히 초기화하기 위해 필요
+        window.location.reload();
+      })
       .subscribe((status) => {
         console.log(`실시간 구독 상태: ${status}`);
       });
     
-    // 좌석 초기화 이벤트 리스너 추가
+    // 전역 변수로 채널 저장 (다른 곳에서 사용하기 위함)
+    window.supabaseChannel = channel;
+    
+    // 좌석 초기화 이벤트 리스너 추가 (로컬 이벤트)
     window.addEventListener('seatsReset', async () => {
       console.log('🟢 좌석 초기화 이벤트 받음 - 좌석 데이터 다시 로드');
       
       // 로컬 스토리지 초기화
       localStorage.removeItem('userSeat');
-      
-      // 페이지 새로고침 - 모든 상태를 완전히 초기화하기 위해 필요
-      window.location.reload();
     });
     
     console.log('✅ 실시간 구독이 설정되었습니다.');
@@ -80,6 +94,27 @@ async function setupRealtimeSubscription() {
   } catch (error) {
     console.error('❌ 실시간 구독 설정 오류:', error);
     return null;
+  }
+}
+
+// 좌석 초기화 브로드캐스트 함수 (모든 클라이언트에 알림)
+async function broadcastSeatsReset() {
+  try {
+    if (window.supabaseChannel) {
+      await window.supabaseChannel.send({
+        type: 'broadcast',
+        event: 'seats-reset',
+        payload: { message: 'all-seats-reset', timestamp: new Date().toISOString() }
+      });
+      console.log('🔄 좌석 초기화 브로드캐스트 메시지 전송 완료');
+      return true;
+    } else {
+      console.error('❌ 실시간 채널이 설정되지 않았습니다.');
+      return false;
+    }
+  } catch (error) {
+    console.error('❌ 브로드캐스트 메시지 전송 오류:', error);
+    return false;
   }
 }
 
