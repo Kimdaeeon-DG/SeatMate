@@ -88,7 +88,20 @@ class SeatAssignment {
 
     async getNextAvailableSeat(gender) {
         try {
-            // 성별에 따른 테이블 선택
+            // PostgreSQL 함수를 호출하여 사용 가능한 좌석 찾기
+            if (window.supabaseUtils) {
+                console.log(`PostgreSQL 함수를 통해 사용 가능한 좌석 찾기 시도 (${gender})`);
+                const seatNumber = await window.supabaseUtils.findAvailableSeat(gender);
+                
+                if (seatNumber) {
+                    console.log(`PostgreSQL 함수로 찾은 다음 사용 가능한 좌석: ${seatNumber}`);
+                    return seatNumber;
+                }
+                console.log('PostgreSQL 함수로 사용 가능한 좌석을 찾지 못함, 기본 방식으로 전환');
+            }
+            
+            // 기본 방식: Supabase 쿼리 사용
+            console.log(`기본 방식으로 사용 가능한 좌석 찾기 시도 (${gender})`);
             const tableName = gender === 'male' ? 'male_seats' : 'female_seats';
             
             // Supabase에서 현재 할당된 좌석 목록 가져오기
@@ -106,24 +119,28 @@ class SeatAssignment {
                 for (let i = 1; i <= totalSeats; i++) {
                     // 이미 할당된 좌석이 아니면 반환
                     if (!assignments.has(i)) {
+                        console.log(`로컬 데이터로 찾은 다음 사용 가능한 좌석: ${i}`);
                         return i;
                     }
                 }
             } else {
                 // 할당된 좌석 번호 집합 생성
                 const assignedSeatNumbers = new Set(assignedSeats.map(seat => seat.seat_number));
+                console.log(`현재 할당된 좌석: ${[...assignedSeatNumbers].join(', ')}`);
                 
                 // 1부터 총 좌석 수까지 확인
                 const totalSeats = this.totalRows * this.totalCols;
                 for (let i = 1; i <= totalSeats; i++) {
                     // 이미 할당된 좌석이 아니면 반환
                     if (!assignedSeatNumbers.has(i)) {
+                        console.log(`Supabase 쿼리로 찾은 다음 사용 가능한 좌석: ${i}`);
                         return i;
                     }
                 }
             }
             
             // 모든 좌석이 할당된 경우
+            console.log('사용 가능한 좌석이 없습니다.');
             return null;
         } catch (error) {
             console.error('다음 가능한 좌석 찾기 오류:', error);
@@ -131,7 +148,7 @@ class SeatAssignment {
         }
     }
 
-    // 좌석 할당 기능
+    // 좌석 할당 기능 - 동시성 문제 방지 개선
     async assignSeat() {
         try {
             // 유효성 검사
@@ -139,35 +156,62 @@ class SeatAssignment {
                 return;
             }
 
-            // 다음 가능한 좌석 가져오기 (비동기 함수로 변경됨)
-            const seatNumber = await this.getNextAvailableSeat(this.selectedGender);
-            
-            if (!seatNumber) {
-                alert('사용 가능한 좌석이 없습니다.');
-                return;
+            // UI 업데이트: 좌석 할당 중 상태 표시
+            const assignButton = document.getElementById('assignButton');
+            if (assignButton) {
+                assignButton.disabled = true;
+                assignButton.textContent = '좌석 할당 중...';
             }
-            
-            console.log('📍 좌석 할당 시도:', { seatNumber, gender: this.selectedGender, userId: this.userId });
-            
-            // Supabase에 좌석 할당 정보 저장 (중복 방지 로직 포함)
-            await this.saveSeatToSupabase(seatNumber);
-            
-            // 성공적으로 저장되면 로컬 상태 업데이트
-            this.updateLocalSeatAssignment(seatNumber);
-            
-            console.log(`✅ 좌석 ${seatNumber}번이 성공적으로 할당되었습니다.`);
-            alert(`좌석 ${seatNumber}번이 성공적으로 할당되었습니다.`);
+
+            try {
+                // 다음 가능한 좌석 가져오기 (비동기 함수)
+                const seatNumber = await this.getNextAvailableSeat(this.selectedGender);
+                
+                if (!seatNumber) {
+                    alert('사용 가능한 좌석이 없습니다.');
+                    return;
+                }
+                
+                console.log('📍 좌석 할당 시도:', { seatNumber, gender: this.selectedGender, userId: this.userId });
+                
+                // 중요: 먼저 Supabase에 저장한 후 성공하면 로컬 상태 업데이트
+                // PostgreSQL 함수를 호출하여 좌석 할당 (동시성 문제 방지)
+                const result = await this.saveSeatToSupabase(seatNumber);
+                
+                if (result && result.success) {
+                    // 성공적으로 저장되면 로컬 상태 업데이트
+                    this.updateLocalSeatAssignment(seatNumber);
+                    
+                    console.log(`✅ 좌석 ${seatNumber}번이 성공적으로 할당되었습니다.`);
+                    alert(`좌석 ${seatNumber}번이 성공적으로 할당되었습니다.`);
+                } else {
+                    throw new Error('좌석 할당에 실패했습니다. 다시 시도해주세요.');
+                }
+            } finally {
+                // 작업 완료 후 UI 복원
+                if (assignButton) {
+                    assignButton.disabled = false;
+                    assignButton.textContent = '좌석 배정하기';
+                }
+            }
             
         } catch (error) {
             console.error('좌석 할당 중 오류 발생:', error);
             
-            // 오류 메시지 표시
-            if (error.message.includes('이미 다른 사용자가 선택한 좌석')) {
-                alert(error.message);
-                // 재시도 유도
-                this.assignSeat();
+            // 오류 메시지 표시 및 재시도 로직 개선
+            if (error.message.includes('이미 다른 사용자가 선택한 좌석') || 
+                error.message.includes('현재 다른 사용자가 선택 중')) {
+                
+                // 사용자에게 알림 후 재시도
+                const retry = confirm(`${error.message}\n\n다른 좌석을 자동으로 배정할까요?`);
+                if (retry) {
+                    // 재시도 전 잠시 대기 (동시 요청 방지)
+                    setTimeout(() => {
+                        this.assignSeat();
+                    }, 500);
+                }
             } else {
-                alert('좌석 할당 중 오류가 발생했습니다. 다시 시도해주세요.');
+                alert(`좌석 할당 중 오류가 발생했습니다: ${error.message}`);
             }
         }
     }
@@ -206,59 +250,30 @@ class SeatAssignment {
         this.updateSeatDisplay();
     }
     
-    // Supabase에 좌석 할당 정보 저장 - 경쟁 상태(race condition) 방지 기능 추가
+    // Supabase에 좌석 할당 정보 저장 - PostgreSQL 함수를 사용한 경쟁 상태(race condition) 방지
     async saveSeatToSupabase(seatNumber) {
         try {
             console.log(`💾 Supabase에 좌석 저장 시도: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
             
-            // 성별에 따라 테이블 선택
-            const tableName = this.selectedGender === 'male' ? 'male_seats' : 'female_seats';
-            
-            // 트랜잭션 패턴 사용: 원자적 작업을 보장하기 위한 안전한 방법
-            // 1. 먼저 해당 좌석이 이미 할당되어 있는지 확인
-            const { data: existingData, error: fetchError } = await supabase
-                .from(tableName)
-                .select('*')
-                .eq('seat_number', seatNumber)
-                .single(); // 단일 결과 반환 요청
-                
-            if (fetchError && fetchError.code !== 'PGRST116') { // PGRST116: 결과 없음
-                throw new Error(`기존 데이터 확인 오류: ${fetchError.message}`);
+            // PostgreSQL 함수를 호출하여 좌석 할당 (원자적 트랜잭션 사용)
+            if (!window.supabaseUtils) {
+                throw new Error('Supabase 유틸리티 함수를 찾을 수 없습니다.');
             }
             
-            // 2. 라이브락 패턴: 좌석이 없으면 삽입, 있으면 실패
-            if (!existingData) {
-                // 새로운 좌석 할당 시도
-                console.log(`➕ 새 좌석 할당 시도: 테이블 ${tableName}`);
-                
-                // upsert 대신 insert를 사용하여 중복 방지
-                const { error: insertError } = await supabase
-                    .from(tableName)
-                    .insert([
-                        { 
-                            seat_number: seatNumber, 
-                            user_id: this.userId,
-                            created_at: new Date().toISOString() // 타임스태프 추가
-                        }
-                    ])
-                    .select();
-                
-                if (insertError) {
-                    // 중복 오류가 발생하면 다른 좌석 번호를 선택하도록 유도
-                    if (insertError.code === '23505') { // 중복 제약 조건 위방 코드
-                        console.log(`⚠️ 중복 오류 발생: 이미 다른 사용자가 선택한 좌석입니다`);
-                        throw new Error(`이미 다른 사용자가 선택한 좌석입니다. 다른 좌석을 선택해주세요.`);
-                    } else {
-                        throw new Error(`좌석 삽입 오류: ${insertError.message}`);
-                    }
-                }
-                
-                console.log(`✅ Supabase에 좌석 저장 성공: 좌석 ${seatNumber}, 테이블 ${tableName}`);
-            } else {
-                // 이미 좌석이 존재하는 경우
-                console.log(`⚠️ 이미 할당된 좌석입니다: 좌석 ${seatNumber}`);
-                throw new Error(`이미 다른 사용자가 선택한 좌석입니다. 다른 좌석을 선택해주세요.`);
+            const result = await window.supabaseUtils.reserveSeat(
+                seatNumber,
+                this.userId,
+                this.selectedGender
+            );
+            
+            // 결과 처리
+            if (!result.success) {
+                console.log(`⚠️ 좌석 할당 실패: ${result.message}`);
+                throw new Error(result.message);
             }
+            
+            console.log(`✅ Supabase에 좌석 저장 성공: 좌석 ${seatNumber}, 성별 ${this.selectedGender}`);
+            return result;
         } catch (error) {
             console.error('좌석 저장 오류:', error);
             // 오류가 발생해도 사용자 경험을 위해 로컬에는 유지

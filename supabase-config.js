@@ -280,5 +280,53 @@ async function createTableIfNotExists() {
   }
 }
 
+// PostgreSQL 함수를 호출하여 좌석 할당하는 함수
+async function reserveSeat(seatNumber, userId, gender) {
+  try {
+    // PostgreSQL 함수 호출
+    const { data, error } = await supabase.rpc('reserve_seat', {
+      p_seat_number: seatNumber,
+      p_user_id: userId,
+      p_gender: gender
+    });
+
+    if (error) {
+      console.error('좌석 할당 함수 호출 오류:', error);
+      return { success: false, message: `좌석 할당 중 오류가 발생했습니다: ${error.message}` };
+    }
+
+    return data || { success: false, message: '알 수 없는 오류가 발생했습니다.' };
+  } catch (error) {
+    console.error('좌석 할당 오류:', error);
+    return { success: false, message: `좌석 할당 중 예외가 발생했습니다: ${error.message}` };
+  }
+}
+
+// 사용 가능한 좌석 찾기 함수
+async function findAvailableSeat(gender) {
+  try {
+    // PostgreSQL 함수 호출
+    const { data, error } = await supabase.rpc('find_available_seat', {
+      p_gender: gender
+    });
+
+    if (error) {
+      console.error('사용 가능한 좌석 찾기 오류:', error);
+      return null;
+    }
+
+    return data; // 사용 가능한 좌석 번호 또는 null
+  } catch (error) {
+    console.error('사용 가능한 좌석 찾기 오류:', error);
+    return null;
+  }
+}
+
 // 실시간 구독 설정 실행
 setupRealtimeSubscription();
+
+// 전역 객체에 함수 노출
+window.supabaseUtils = {
+  reserveSeat,
+  findAvailableSeat
+};
