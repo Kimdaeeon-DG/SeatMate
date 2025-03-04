@@ -253,14 +253,21 @@ class SeatAssignment {
             return this.resetAllSeats();
         };
         
+        // 관리자용 전체 초기화 기능 (서버 함수 호출)
+        window.resetAllSeatsForEveryone = (adminPassword) => {
+            return this.resetAllSeatsForEveryone(adminPassword);
+        };
+        
         // 개발자 안내 메시지
-        console.info('💻 개발자 도구: 전체 좌석 초기화를 위해 콘솔에서 "resetSeatSystem()" 함수를 실행하세요.');
+        console.info('💻 개발자 도구: ');
+        console.info(' - 내 좌석 초기화: resetSeatSystem()');
+        console.info(' - 모든 사용자 좌석 초기화(관리자): resetAllSeatsForEveryone("love1030")');
     }
     
-    // 모든 좌석 초기화 기능
+    // 내 좌석만 초기화 기능
     async resetAllSeats() {
         try {
-            // Supabase에서 모든 좌석 데이터 삭제
+            // Supabase에서 현재 사용자의 좌석 데이터만 삭제
             const { error } = await supabase
                 .from('seats')
                 .delete()
@@ -293,11 +300,71 @@ class SeatAssignment {
             // 다시 좌석 데이터 로드
             await this.loadSeatsFromSupabase();
             
-            console.log('🟢 성공: 전체 좌석 상태가 초기화되었습니다.');
+            console.log('🟢 성공: 내 좌석이 초기화되었습니다.');
             return true;
         } catch (error) {
             console.error('좌석 초기화 중 오류 발생:', error);
             alert('좌석 초기화 중 오류가 발생했습니다.');
+            return false;
+        }
+    }
+    
+    // 모든 사용자의 좌석 초기화 기능 (관리자용) - 로컬 및 서버 방식 혼합
+    async resetAllSeatsForEveryone(adminPassword) {
+        try {
+            // 관리자 비밀번호 확인 (로컬에서 검증 - 실제 운영에서는 서버에서 처리해야 함)
+            const correctPassword = 'love1030';
+            
+            if (adminPassword !== correctPassword) {
+                console.error('🔴 관리자 인증 실패: 비밀번호가 올바르지 않습니다.');
+                throw new Error('관리자 인증 실패: 비밀번호가 올바르지 않습니다.');
+            }
+            
+            // 서버에서 모든 좌석 삭제
+            const { data, error } = await supabase
+                .from('seats')
+                .delete()
+                .neq('id', 0);
+                
+            if (error) throw error;
+            
+            // 성공적으로 초기화되었으므로 클라이언트 상태도 초기화
+            // 로컬 스토리지 초기화
+            localStorage.removeItem('userSeat');
+            
+            // 메모리에서 할당된 좌석 초기화
+            this.maleAssignments.clear();
+            this.femaleAssignments.clear();
+            
+            // 화면 초기화
+            this.selectedGender = null;
+            this.userSeat = null;
+            this.seatNumberDisplay.textContent = '좌석을 선택해주세요';
+            
+            // 버튼 상태 초기화
+            this.maleBtn.classList.remove('active');
+            this.femaleBtn.classList.remove('active');
+            
+            // 모든 좌석 표시 초기화
+            const seats = document.querySelectorAll('.seat');
+            seats.forEach(seat => {
+                seat.classList.remove('male', 'female');
+            });
+            
+            // 다시 좌석 데이터 로드
+            await this.loadSeatsFromSupabase();
+            
+            console.log('🟢 성공: 모든 사용자의 좌석이 초기화되었습니다.');
+            alert('모든 사용자의 좌석이 초기화되었습니다.');
+            
+            // 실시간 업데이트를 위해 이벤트 발생
+            const resetEvent = new CustomEvent('seatsReset');
+            window.dispatchEvent(resetEvent);
+            
+            return true;
+        } catch (error) {
+            console.error('전체 좌석 초기화 중 오류 발생:', error);
+            alert(error.message || '전체 좌석 초기화 중 오류가 발생했습니다.');
             return false;
         }
     }

@@ -64,6 +64,21 @@ async function setupRealtimeSubscription() {
         console.log(`실시간 구독 상태: ${status}`);
       });
     
+    // 좌석 초기화 이벤트 리스너 추가
+    window.addEventListener('seatsReset', async () => {
+      console.log('🟢 좌석 초기화 이벤트 받음 - 좌석 데이터 다시 로드');
+      
+      // 로컬 스토리지 초기화
+      localStorage.removeItem('userSeat');
+      
+      // 페이지 새로고침 (선택적)
+      // window.location.reload();
+      
+      // 이벤트 발생
+      const resetCompleteEvent = new CustomEvent('seatsResetComplete');
+      window.dispatchEvent(resetCompleteEvent);
+    });
+    
     console.log('✅ 실시간 구독이 설정되었습니다.');
     return channel;
   } catch (error) {
