@@ -1,6 +1,8 @@
 :root {
     --male-color: #90EE90;    /* Light green */
+    --male-color-dark: #3CB371;  /* Medium Sea Green */
     --female-color: #FFB6C1;  /* Light pink */
+    --female-color-dark: #DB7093;  /* Pale Violet Red */
 }
 
 * {
@@ -41,7 +43,7 @@ h1 {
 
 .seat-grid {
     display: grid;
-    grid-template-columns: repeat(4, 50px);
+    grid-template-columns: repeat(4, 50px); /* 열 수가 변경되면 이 숫자(4)도 변경하세요 */
     grid-gap: 5px;
     grid-column-gap: 15px; /* 열 간격 추가 */
     margin: 0 auto 30px;
@@ -99,14 +101,20 @@ h1 {
 
 .gender-btn {
     width: 100px;
+    position: relative;
+    border: 2px solid transparent;
+    font-weight: bold;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .gender-btn.male {
     background-color: var(--male-color);
+    color: #006400; /* Dark Green */
 }
 
 .gender-btn.female {
     background-color: var(--female-color);
+    color: #8B0000; /* Dark Red */
 }
 
 .select-btn {
@@ -120,7 +128,35 @@ h1 {
 
 .gender-btn.active {
     transform: scale(1.05);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    border: 2px solid #333;
+}
+
+.gender-btn.male.active {
+    background-color: var(--male-color-dark);
+    color: white;
+}
+
+.gender-btn.female.active {
+    background-color: var(--female-color-dark);
+    color: white;
+}
+
+.gender-btn::after {
+    content: '';
+    position: absolute;
+    bottom: -10px;
+    left: 50%;
+    transform: translateX(-50%) scale(0);
+    width: 20px;
+    height: 4px;
+    background-color: #333;
+    border-radius: 2px;
+    transition: transform 0.3s ease;
+}
+
+.gender-btn.active::after {
+    transform: translateX(-50%) scale(1);
 }
 
 .admin-link {

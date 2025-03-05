@@ -1,8 +1,8 @@
 class SeatAssignment {
     constructor() {
-        // 기본 설정
-        this.totalRows = 10;
-        this.totalCols = 4;
+        // 강의실 좌석 배치 설정 - 필요에 따라 변경하세요
+        this.totalRows = 10;  // 행 수 (앞뒤 줄 수)
+        this.totalCols = 4;   // 열 수 (좌우 좌석 수)
         this.selectedGender = null;
         this.maleAssignments = new Set();
         this.femaleAssignments = new Set();
@@ -46,6 +46,10 @@ class SeatAssignment {
         this.femaleBtn = document.getElementById('femaleBtn');
         this.selectBtn = document.getElementById('selectBtn');
         this.seatGrid = document.querySelector('.seat-grid');
+        
+        // 초기 선택 버튼 상태 설정
+        this.selectBtn.disabled = !this.selectedGender;
+        this.selectBtn.style.opacity = this.selectedGender ? '1' : '0.7';
     }
 
     initializeEventListeners() {
@@ -82,8 +86,37 @@ class SeatAssignment {
 
     selectGender(gender) {
         this.selectedGender = gender;
+        
+        // 버튼 상태 업데이트
         this.maleBtn.classList.toggle('active', gender === 'male');
         this.femaleBtn.classList.toggle('active', gender === 'female');
+        
+        // 선택 상태에 따라 안내 메시지 업데이트
+        if (gender === 'male') {
+            this.seatNumberDisplay.textContent = '남성을 선택했습니다. 좌석 배정 버튼을 눌러주세요.';
+            this.seatNumberDisplay.style.color = 'var(--male-color-dark)';
+        } else if (gender === 'female') {
+            this.seatNumberDisplay.textContent = '여성을 선택했습니다. 좌석 배정 버튼을 눌러주세요.';
+            this.seatNumberDisplay.style.color = 'var(--female-color-dark)';
+        }
+        
+        // 선택 버튼 활성화 및 스타일 변경
+        this.selectBtn.disabled = false;
+        this.selectBtn.style.opacity = '1';
+        
+        // 애니메이션 효과 추가
+        this.animateSelection(gender);
+    }
+    
+    // 선택 애니메이션 효과
+    animateSelection(gender) {
+        const button = gender === 'male' ? this.maleBtn : this.femaleBtn;
+        
+        // 간단한 펄스 애니메이션
+        button.style.transform = 'scale(1.2)';
+        setTimeout(() => {
+            button.style.transform = 'scale(1.05)';
+        }, 200);
     }
 
     async getNextAvailableSeat(gender) {
@@ -184,6 +217,16 @@ class SeatAssignment {
                     
                     console.log(`✅ 좌석 ${seatNumber}번이 성공적으로 할당되었습니다.`);
                     alert(`좌석 ${seatNumber}번이 성공적으로 할당되었습니다.`);
+                    
+                    // 성별 선택 버튼 상태 초기화
+                    setTimeout(() => {
+                        this.maleBtn.classList.remove('active');
+                        this.femaleBtn.classList.remove('active');
+                        this.selectBtn.disabled = true;
+                        this.selectBtn.style.opacity = '0.7';
+                        this.seatNumberDisplay.style.color = this.selectedGender === 'male' ? 'var(--male-color-dark)' : 'var(--female-color-dark)';
+                        this.seatNumberDisplay.textContent = `${seatNumber}번 좌석이 배정되었습니다.`;
+                    }, 1000);
                 } else {
                     throw new Error('좌석 할당에 실패했습니다. 다시 시도해주세요.');
                 }
@@ -220,13 +263,16 @@ class SeatAssignment {
     validateSeatAssignment() {
         // 이미 좌석이 배정된 사용자인지 확인
         if (this.userSeat) {
-            alert('이미 좌석이 배정되어 있습니다.');
+            alert(`이미 ${this.userSeat.number}번 좌석이 배정되어 있습니다.`);
+            this.seatNumberDisplay.textContent = `이미 ${this.userSeat.number}번 좌석이 배정되어 있습니다.`;
             return false;
         }
 
         // 성별 선택 여부 확인
         if (!this.selectedGender) {
             alert('성별을 선택해주세요.');
+            this.seatNumberDisplay.textContent = '성별을 먼저 선택해주세요.';
+            this.seatNumberDisplay.style.color = '#ff0000';
             return false;
         }
         
