@@ -93,10 +93,10 @@ class SeatAssignment {
         
         // 선택 상태에 따라 안내 메시지 업데이트
         if (gender === 'male') {
-            this.seatNumberDisplay.textContent = '남성을 선택했습니다. 좌석 배정 버튼을 눌러주세요.';
+            this.seatNumberDisplay.textContent = '남성을 선택했습니다.\n좌석 배정 버튼을 눌러주세요.';
             this.seatNumberDisplay.style.color = 'var(--male-color-dark)';
         } else if (gender === 'female') {
-            this.seatNumberDisplay.textContent = '여성을 선택했습니다. 좌석 배정 버튼을 눌러주세요.';
+            this.seatNumberDisplay.textContent = '여성을 선택했습니다.\n좌석 배정 버튼을 눌러주세요.';
             this.seatNumberDisplay.style.color = 'var(--female-color-dark)';
         }
         
