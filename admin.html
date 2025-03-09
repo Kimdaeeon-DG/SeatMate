@@ -54,6 +54,34 @@
             margin-top: 20px;
         }
         
+        .delete-seat-form {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #ddd;
+        }
+        
+        .delete-seat-controls {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .admin-select, .admin-input {
+            padding: 8px 12px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 14px;
+        }
+        
+        .delete-btn {
+            background-color: #dc3545;
+            color: white;
+        }
+        
+        .delete-btn:hover {
+            background-color: #c82333;
+        }
+        
         .admin-btn {
             padding: 12px;
             border: none;
@@ -233,13 +261,25 @@
         <div id="admin-content" class="hidden">
             <div class="admin-form">
                 <div class="form-group">
-                    <label for="admin-password">관리자 비밀번호 (좌석 초기화용)</label>
+                    <label for="admin-password">관리자 비밀번호 (좌석 관리용)</label>
                     <input type="password" id="admin-password" placeholder="비밀번호를 입력하세요">
                 </div>
                 
                 <div class="admin-actions">
                     <button id="reset-all-seats" class="admin-btn reset-btn">모든 좌석 초기화</button>
                     <button id="back-to-main" class="admin-btn back-btn">메인 페이지로 돌아가기</button>
+                </div>
+                
+                <div class="form-group delete-seat-form">
+                    <h3>특정 좌석 삭제</h3>
+                    <div class="delete-seat-controls">
+                        <select id="delete-seat-gender" class="admin-select">
+                            <option value="male">남자</option>
+                            <option value="female">여자</option>
+                        </select>
+                        <input type="number" id="delete-seat-number" placeholder="좌석 번호" min="1" max="48" class="admin-input">
+                        <button id="delete-specific-seat" class="admin-btn delete-btn">좌석 삭제</button>
+                    </div>
                 </div>
                 
                 <div id="status-message" class="status-message hidden"></div>
@@ -288,6 +328,9 @@
             const adminPasswordInput = document.getElementById('admin-password');
             const statusMessage = document.getElementById('status-message');
             const adminSeatGrid = document.getElementById('admin-seat-grid');
+            const deleteSeatGender = document.getElementById('delete-seat-gender');
+            const deleteSeatNumber = document.getElementById('delete-seat-number');
+            const deleteSpecificSeatBtn = document.getElementById('delete-specific-seat');
             
             // 총행과 총열 수 - 메인 페이지와 동일하게 48석으로 설정
             const totalRows = 12;
@@ -527,6 +570,59 @@
             // 메인 페이지로 돌아가기 버튼 클릭 이벤트
             backToMainBtn.addEventListener('click', function() {
                 window.location.href = 'index.html';
+            });
+            
+            // 특정 좌석 삭제 버튼 클릭 이벤트
+            deleteSpecificSeatBtn.addEventListener('click', async function() {
+                const adminPassword = adminPasswordInput.value.trim();
+                const gender = deleteSeatGender.value;
+                const seatNumber = parseInt(deleteSeatNumber.value);
+                
+                // 유효성 검사
+                if (!adminPassword) {
+                    showMessage('관리자 비밀번호를 입력해주세요.', 'error');
+                    return;
+                }
+                
+                if (isNaN(seatNumber) || seatNumber < 1 || seatNumber > (totalRows * totalCols)) {
+                    showMessage(`유효한 좌석 번호를 입력해주세요 (1-${totalRows * totalCols}).`, 'error');
+                    return;
+                }
+                
+                // 관리자 비밀번호 확인
+                if (adminPassword !== correctPassword) {
+                    showMessage('관리자 인증 실패: 비밀번호가 올바르지 않습니다.', 'error');
+                    return;
+                }
+                
+                try {
+                    // 해당 테이블에서 좌석 삭제
+                    const tableName = gender === 'male' ? 'male_seats' : 'female_seats';
+                    
+                    const { data, error } = await supabase
+                        .from(tableName)
+                        .delete()
+                        .eq('seat_number', seatNumber);
+                    
+                    if (error) throw error;
+                    
+                    // 성공 메시지 표시
+                    showMessage(`${gender === 'male' ? '남성' : '여성'} ${seatNumber}번 좌석이 삭제되었습니다.`, 'success');
+                    
+                    // 실시간 업데이트를 위해 이벤트 발생 (로컬)
+                    const updateEvent = new CustomEvent('seatsUpdated');
+                    window.dispatchEvent(updateEvent);
+                    
+                    // 좌석 데이터 다시 로드
+                    loadAndDisplayAllSeats();
+                    
+                    // 입력 필드 초기화
+                    deleteSeatNumber.value = '';
+                    
+                } catch (error) {
+                    console.error('좌석 삭제 중 오류 발생:', error);
+                    showMessage(error.message || '좌석 삭제 중 오류가 발생했습니다.', 'error');
+                }
             });
             
             // 상태 메시지 표시 함수
