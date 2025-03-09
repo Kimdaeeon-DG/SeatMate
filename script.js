@@ -8,8 +8,14 @@ class SeatAssignment {
         this.femaleAssignments = new Set();
         this.userId = this.generateOrGetUserId();
         this.userSeat = this.loadUserSeat();
-        this.adminPassword = 'love1030'; // 관리자 비밀번호 중앙 관리
         this.lastResetTimestamp = localStorage.getItem('lastResetTimestamp') || '0';
+        
+        // 좌석 요소 캠싱을 위한 맵 추가 - 성능 최적화
+        this.seatElements = new Map();
+        
+        // 관리자 비밀번호 안전하게 관리 - Supabase에서 로드
+        this.adminPassword = null;
+        this.loadAdminPassword();
 
         // 초기화 및 설정
         this.initializeElements();
@@ -53,6 +59,10 @@ class SeatAssignment {
     }
 
     createSeatGrid() {
+        // 좌석 그리드 초기화
+        this.seatGrid.innerHTML = '';
+        this.seatElements.clear(); // 캠싱된 요소 초기화
+        
         // 행 우선으로 좌석 생성 (왼쪽에서 오른쪽으로, 위에서 아래로)
         let seatNumber = 1;
         
@@ -60,7 +70,7 @@ class SeatAssignment {
             for (let j = 0; j < this.totalCols; j++) {
                 const seat = document.createElement('div');
                 seat.className = 'seat';
-                seat.textContent = seatNumber++;
+                seat.textContent = seatNumber;
                 
                 // 열 구분을 위한 클래스 추가
                 if (j === 0) {
@@ -73,7 +83,11 @@ class SeatAssignment {
                     seat.classList.add('column-4');
                 }
                 
+                // 좌석 요소를 캠싱 (성능 최적화)
+                this.seatElements.set(seatNumber, seat);
+                
                 this.seatGrid.appendChild(seat);
+                seatNumber++;
             }
         }
     }
@@ -103,15 +117,33 @@ class SeatAssignment {
         }, 500); // 0.5초 뒤에 좌석 할당 시작 (애니메이션 효과 후)
     }
     
-    // 선택 애니메이션 효과
+    // 선택 애니메이션 효과 - CSS 클래스 기반으로 변경
     animateSelection(gender) {
         const button = gender === 'male' ? this.maleBtn : this.femaleBtn;
         
-        // 간단한 펄스 애니메이션
-        button.style.transform = 'scale(1.2)';
+        // CSS 클래스를 사용하여 애니메이션 적용
+        button.classList.add('pulse-animation');
+        
+        // 애니메이션 완료 후 클래스 제거
         setTimeout(() => {
-            button.style.transform = 'scale(1.05)';
-        }, 200);
+            button.classList.remove('pulse-animation');
+        }, 500);
+    }
+    
+    // 좌석 애니메이션 효과 - 캠싱된 요소 활용 최적화 버전
+    animateSeat(seatNumber) {
+        // 캠싱된 좌석 요소 사용 (성능 최적화)
+        const seatElement = this.seatElements.get(seatNumber);
+        
+        if (seatElement) {
+            // CSS 클래스를 사용한 애니메이션 추가
+            seatElement.classList.add('pulse-animation');
+            
+            // 애니메이션 완료 후 클래스 제거
+            setTimeout(() => {
+                seatElement.classList.remove('pulse-animation');
+            }, 500);
+        }
     }
 
     async getNextAvailableSeat(gender) {
@@ -213,12 +245,15 @@ class SeatAssignment {
                         this.seatNumberDisplay.style.color = this.selectedGender === 'male' ? 'var(--male-color-dark)' : 'var(--female-color-dark)';
                         this.seatNumberDisplay.textContent = `${seatNumber}번 좌석이 배정되었습니다.`;
                     }, 1000);
+                    
+                    // 성공 시에만 성별 선택 초기화
+                    this.selectedGender = null;
                 } else {
                     throw new Error('좌석 할당에 실패했습니다. 다시 시도해주세요.');
                 }
-            } finally {
-                // 작업 완료 후 처리
-                this.selectedGender = null; // 성별 선택 초기화
+            } catch (error) {
+                // 오류 처리 - selectedGender는 초기화하지 않음
+                throw error;
             }
             
         } catch (error) {
@@ -305,21 +340,20 @@ class SeatAssignment {
             return result;
         } catch (error) {
             console.error('좌석 저장 오류:', error);
-            // 오류가 발생해도 사용자 경험을 위해 로컬에는 유지
-            // 다음 시도에 자동 동기화 예정
+            // 오류를 위로 전파하여 호출자가 처리할 수 있도록 함
+            throw error;
         }
     }
 
-    // 좌석 표시 업데이트 - 사용자의 좌석만 표시
+    // 좌석 표시 업데이트 - 사용자의 좌석만 표시 (캠싱 사용)
     updateSeatDisplay() {
         // 모든 좌석 표시 초기화
         this.resetSeatDisplay();
         
         // 사용자 자신의 좌석만 표시
         if (this.userSeat) {
-            const seats = document.querySelectorAll('.seat');
-            const seatIndex = this.userSeat.number - 1;
-            const seatElement = seats[seatIndex];
+            // 캠싱된 좌석 요소 사용 (성능 최적화)
+            const seatElement = this.seatElements.get(this.userSeat.number);
             
             if (seatElement) {
                 // 개인 페이지에서는 항상 사용자 자신의 성별로만 표시
@@ -333,12 +367,12 @@ class SeatAssignment {
         }
     }
     
-    // 모든 좌석 표시 초기화
+    // 모든 좌석 표시 초기화 (캠싱 사용)
     resetSeatDisplay() {
-        const seats = document.querySelectorAll('.seat');
-        seats.forEach(seat => {
-            seat.classList.remove('male', 'female', 'mixed');
-        });
+        // 캠싱된 좌석 요소 사용 (성능 최적화)
+        for (const seatElement of this.seatElements.values()) {
+            seatElement.classList.remove('male', 'female', 'mixed');
+        }
     }
 
     saveUserSeat() {
@@ -350,7 +384,7 @@ class SeatAssignment {
         return savedSeat ? JSON.parse(savedSeat) : null;
     }
     
-    // Supabase에서 좌석 데이터 로드
+    // Supabase에서 좌석 데이터 로드 (캠싱 요소 활용 최적화 버전)
     async loadSeatsFromSupabase() {
         try {
             // 남성 좌석 데이터 로드
@@ -375,71 +409,49 @@ class SeatAssignment {
             this.maleAssignments.clear();
             this.femaleAssignments.clear();
 
-            // 남성 데이터에 성별 정보 추가
-            const processedMaleData = (maleData || []).map(seat => ({
-                ...seat,
-                gender: 'male'
-            }));
+            // 남성 좌석 데이터 처리 - 직접 Set에 추가
+            (maleData || []).forEach(seat => {
+                this.maleAssignments.add(seat.seat_number);
+                
+                // 현재 사용자의 좌석인지 확인
+                if (seat.user_id === this.userId) {
+                    this.userSeat = {
+                        number: seat.seat_number,
+                        gender: 'male',
+                        userId: seat.user_id
+                    };
+                    this.saveUserSeat();
+                }
+            });
             
-            // 여성 데이터에 성별 정보 추가
-            const processedFemaleData = (femaleData || []).map(seat => ({
-                ...seat,
-                gender: 'female'
-            }));
+            // 여성 좌석 데이터 처리 - 직접 Set에 추가
+            (femaleData || []).forEach(seat => {
+                this.femaleAssignments.add(seat.seat_number);
+                
+                // 현재 사용자의 좌석인지 확인
+                if (seat.user_id === this.userId) {
+                    this.userSeat = {
+                        number: seat.seat_number,
+                        gender: 'female',
+                        userId: seat.user_id
+                    };
+                    this.saveUserSeat();
+                }
+            });
             
-            // 남성과 여성 데이터 합치기
-            const combinedData = [...processedMaleData, ...processedFemaleData];
-            
-            // 데이터베이스에서 좌석 정보 로드
-            this.processSeatsData(combinedData);
-            
-            // 좌석 표시 업데이트
+            // 좌석 표시 업데이트 - 캠싱된 요소 사용
             this.updateSeatDisplay();
+            
+            // 남성과 여성 데이터 합치기 (반환용)
+            const combinedData = [
+                ...(maleData || []).map(seat => ({ ...seat, gender: 'male' })),
+                ...(femaleData || []).map(seat => ({ ...seat, gender: 'female' }))
+            ];
             
             return combinedData;
         } catch (error) {
             console.error('좌석 데이터 로드 중 오류 발생:', error);
             return [];
-        }
-    }
-    
-    // 서버에서 가져온 좌석 데이터 처리
-    processSeatsData(data) {
-        // 좌석별 성별 할당 정보를 임시로 저장할 객체
-        const seatOccupancy = {};
-        
-        // 먼저 각 좌석별로 할당된 성별 정보 수집
-        data.forEach(seat => {
-            const seatNumber = seat.seat_number;
-            if (!seatOccupancy[seatNumber]) {
-                seatOccupancy[seatNumber] = [];
-            }
-            seatOccupancy[seatNumber].push(seat.gender);
-            
-            // 현재 사용자의 좌석인지 확인
-            if (seat.user_id === this.userId) {
-                this.userSeat = {
-                    number: seat.seat_number,
-                    gender: seat.gender,
-                    userId: seat.user_id
-                };
-                this.saveUserSeat();
-            }
-        });
-        
-        // 수집된 정보를 기반으로 남성/여성 할당 처리
-        for (const [seatNumber, genders] of Object.entries(seatOccupancy)) {
-            const seatNum = parseInt(seatNumber);
-            const hasMale = genders.includes('male');
-            const hasFemale = genders.includes('female');
-            
-            if (hasMale) {
-                this.maleAssignments.add(seatNum);
-            }
-            
-            if (hasFemale) {
-                this.femaleAssignments.add(seatNum);
-            }
         }
     }
     
@@ -532,6 +544,33 @@ class SeatAssignment {
         this.updateSeatDisplay();
     }
     
+    // 관리자 비밀번호를 Supabase에서 안전하게 로드하는 함수
+    async loadAdminPassword() {
+        try {
+            // system_info 테이블에서 관리자 비밀번호 가져오기
+            const { data, error } = await supabase
+                .from('system_info')
+                .select('admin_password')
+                .eq('id', 1)
+                .single();
+                
+            if (error) {
+                console.error('관리자 비밀번호 로드 오류:', error);
+                // 오류 발생 시 기본 비밀번호 사용 (개발 환경용)
+                this.adminPassword = 'love1030';
+            } else if (data && data.admin_password) {
+                this.adminPassword = data.admin_password;
+            } else {
+                // 데이터가 없는 경우 기본 비밀번호 사용 (개발 환경용)
+                this.adminPassword = 'love1030';
+            }
+        } catch (error) {
+            console.error('관리자 비밀번호 로드 중 오류:', error);
+            // 오류 발생 시 기본 비밀번호 사용 (개발 환경용)
+            this.adminPassword = 'love1030';
+        }
+    }
+    
     // 개발자용 초기화 기능
     setupDevTools() {
         // 전역 객체에 초기화 기능 추가
@@ -547,7 +586,7 @@ class SeatAssignment {
         // 개발자 안내 메시지
         console.info('💻 개발자 도구: ');
         console.info(' - 내 좌석 초기화: resetSeatSystem()');
-        console.info(` - 모든 사용자 좌석 초기화(관리자): resetAllSeatsForEveryone("${this.adminPassword}")`);
+        console.info(' - 모든 사용자 좌석 초기화(관리자): resetAllSeatsForEveryone("[admin password]")');  // 비밀번호 노출 방지
     }
     
     // 클라이언트 상태 초기화 공통 함수

@@ -26,6 +26,17 @@ body {
     border-color: #FFCC00;
 }
 
+/* 버튼 펄스 애니메이션 */
+@keyframes pulse {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.2); }
+    100% { transform: scale(1.05); }
+}
+
+.pulse-animation {
+    animation: pulse 0.5s ease-in-out;
+}
+
 .container {
     width: 100%;
     max-width: 1000px;
