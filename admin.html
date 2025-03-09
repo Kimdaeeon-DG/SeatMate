@@ -123,7 +123,7 @@
             display: none;
         }
         
-        /* 좌석 그리드 스타일 */
+        /* 좌석 그리드 스타일 - 12행 4열 */
         .admin-seat-grid {
             display: grid;
             grid-template-columns: repeat(4, 50px);
@@ -289,8 +289,8 @@
             const statusMessage = document.getElementById('status-message');
             const adminSeatGrid = document.getElementById('admin-seat-grid');
             
-            // 총행과 총열 수
-            const totalRows = 10;
+            // 총행과 총열 수 - 메인 페이지와 동일하게 48석으로 설정
+            const totalRows = 12;
             const totalCols = 4;
             
             // 관리자 비밀번호
