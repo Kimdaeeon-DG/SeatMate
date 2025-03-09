@@ -44,18 +44,12 @@ class SeatAssignment {
         this.seatNumberDisplay = document.getElementById('seatNumber');
         this.maleBtn = document.getElementById('maleBtn');
         this.femaleBtn = document.getElementById('femaleBtn');
-        this.selectBtn = document.getElementById('selectBtn');
         this.seatGrid = document.querySelector('.seat-grid');
-        
-        // 초기 선택 버튼 상태 설정
-        this.selectBtn.disabled = !this.selectedGender;
-        this.selectBtn.style.opacity = this.selectedGender ? '1' : '0.7';
     }
 
     initializeEventListeners() {
         this.maleBtn.addEventListener('click', () => this.selectGender('male'));
         this.femaleBtn.addEventListener('click', () => this.selectGender('female'));
-        this.selectBtn.addEventListener('click', () => this.assignSeat());
     }
 
     createSeatGrid() {
@@ -93,19 +87,20 @@ class SeatAssignment {
         
         // 선택 상태에 따라 안내 메시지 업데이트
         if (gender === 'male') {
-            this.seatNumberDisplay.textContent = '남성을 선택했습니다.\n좌석 배정 버튼을 눌러주세요.';
+            this.seatNumberDisplay.textContent = '남성을 선택했습니다. 좌석을 배정하는 중...';
             this.seatNumberDisplay.style.color = 'var(--male-color-dark)';
         } else if (gender === 'female') {
-            this.seatNumberDisplay.textContent = '여성을 선택했습니다.\n좌석 배정 버튼을 눌러주세요.';
+            this.seatNumberDisplay.textContent = '여성을 선택했습니다. 좌석을 배정하는 중...';
             this.seatNumberDisplay.style.color = 'var(--female-color-dark)';
         }
         
-        // 선택 버튼 활성화 및 스타일 변경
-        this.selectBtn.disabled = false;
-        this.selectBtn.style.opacity = '1';
-        
         // 애니메이션 효과 추가
         this.animateSelection(gender);
+        
+        // 성별 선택 후 바로 좌석 할당 시작
+        setTimeout(() => {
+            this.assignSeat();
+        }, 500); // 0.5초 뒤에 좌석 할당 시작 (애니메이션 효과 후)
     }
     
     // 선택 애니메이션 효과
@@ -189,13 +184,6 @@ class SeatAssignment {
                 return;
             }
 
-            // UI 업데이트: 좌석 할당 중 상태 표시
-            const assignButton = document.getElementById('assignButton');
-            if (assignButton) {
-                assignButton.disabled = true;
-                assignButton.textContent = '좌석 할당 중...';
-            }
-
             try {
                 // 다음 가능한 좌석 가져오기 (비동기 함수)
                 const seatNumber = await this.getNextAvailableSeat(this.selectedGender);
@@ -222,8 +210,6 @@ class SeatAssignment {
                     setTimeout(() => {
                         this.maleBtn.classList.remove('active');
                         this.femaleBtn.classList.remove('active');
-                        this.selectBtn.disabled = true;
-                        this.selectBtn.style.opacity = '0.7';
                         this.seatNumberDisplay.style.color = this.selectedGender === 'male' ? 'var(--male-color-dark)' : 'var(--female-color-dark)';
                         this.seatNumberDisplay.textContent = `${seatNumber}번 좌석이 배정되었습니다.`;
                     }, 1000);
@@ -231,11 +217,8 @@ class SeatAssignment {
                     throw new Error('좌석 할당에 실패했습니다. 다시 시도해주세요.');
                 }
             } finally {
-                // 작업 완료 후 UI 복원
-                if (assignButton) {
-                    assignButton.disabled = false;
-                    assignButton.textContent = '좌석 배정하기';
-                }
+                // 작업 완료 후 처리
+                this.selectedGender = null; // 성별 선택 초기화
             }
             
         } catch (error) {
