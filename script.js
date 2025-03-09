@@ -329,7 +329,7 @@ class SeatAssignment {
             
             this.seatNumberDisplay.textContent = `${this.userSeat.number}번입니다`;
         } else {
-            this.seatNumberDisplay.textContent = '성별을 선택 후\n좌석 배정 버튼을 눌러주세요.';
+            this.seatNumberDisplay.textContent = '성별을 선택하면\n좌석이 자동 배정됩니다';
         }
     }
     
