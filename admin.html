@@ -166,7 +166,7 @@
             display: none;
         }
         
-        /* 좌석 그리드 스타일 - 12행 4열 */
+        /* 좌석 그리드 스타일 - 10행 4열 */
         .admin-seat-grid {
             display: grid;
             grid-template-columns: repeat(4, 50px);
@@ -292,7 +292,7 @@
                             <option value="male">남자</option>
                             <option value="female">여자</option>
                         </select>
-                        <input type="number" id="delete-seat-number" placeholder="좌석 번호" min="1" max="48" class="admin-input">
+                        <input type="number" id="delete-seat-number" placeholder="좌석 번호" min="1" max="40" class="admin-input">
                         <button id="delete-specific-seat" class="admin-btn delete-btn">좌석 삭제</button>
                     </div>
                 </div>
@@ -347,8 +347,8 @@
             const deleteSeatNumber = document.getElementById('delete-seat-number');
             const deleteSpecificSeatBtn = document.getElementById('delete-specific-seat');
             
-            // 총행과 총열 수 - 메인 페이지와 동일하게 48석으로 설정
-            const totalRows = 12;
+            // 총행과 총열 수 - 메인 페이지와 동일하게 40석으로 설정
+            const totalRows = 10;
             const totalCols = 4;
             
             // 관리자 비밀번호
