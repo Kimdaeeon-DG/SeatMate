@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>사랑과 연애 좌석 배정 시스템 - 관리자</title>
+    <meta name="description" content="사랑과 연애 좌석 배정 시스템 관리자 페이지">
+    <title>SeatMate - 관리자 대시보드</title>
     <link rel="stylesheet" href="styles.css">
-    <!-- Supabase SDK -->
+    <!-- Supabase JavaScript SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
     <style>
         .admin-container {
@@ -347,11 +348,14 @@
             const deleteSeatNumber = document.getElementById('delete-seat-number');
             const deleteSpecificSeatBtn = document.getElementById('delete-specific-seat');
             
-            // 총행과 총열 수 - 메인 페이지와 동일하게 40석으로 설정
-            const totalRows = 10;
-            const totalCols = 4;
+            // 좌석 설정 - 총 40석 (10행 x 4열)
+            const totalRows = 10; // 총 행 수
+            const totalCols = 4;  // 총 열 수
             
-            // 관리자 비밀번호
+            /**
+             * 관리자 비밀번호 - 보안을 위한 인증 수단
+             * 참고: 실제 프로덕션에서는 환경변수나 Supabase에서 안전하게 관리해야 합니다
+             */
             const correctPassword = 'love1030';
             
             // 비밀번호 확인 버튼 클릭 이벤트
@@ -409,7 +413,10 @@
                 }
             }
             
-            // 모든 좌석 데이터 로드 및 표시
+            /**
+             * 모든 좌석 데이터를 Supabase에서 불러와 관리자 대시보드에 표시하는 함수
+             * 남성/여성 좌석 테이블에서 데이터를 가져와 시각화합니다.
+             */
             async function loadAndDisplayAllSeats() {
                 try {
                     // 남성 좌석 데이터 로드
@@ -507,7 +514,10 @@
                 }
             }
             
-            // 실시간 업데이트 리스너 설정
+            /**
+             * 실시간 좌석 상태 업데이트를 위한 이벤트 리스너 설정
+             * 좌석 업데이트 또는 초기화 이벤트가 발생할 때 UI를 갱신합니다.
+             */
             function setupRealtimeListener() {
                 window.addEventListener('seatsUpdated', () => {
                     loadAndDisplayAllSeats();
@@ -518,7 +528,11 @@
                 });
             }
             
-            // 모든 좌석 초기화 버튼 클릭 이벤트
+            /**
+             * 모든 좌석 초기화 버튼 클릭 이벤트 핸들러
+             * 관리자 인증 후 모든 좌석 데이터를 삭제하고 UI를 갱신합니다.
+             * Supabase 트랜잭션을 통해 동시성 문제를 방지합니다.
+             */
             resetAllSeatsBtn.addEventListener('click', async function() {
                 const adminPassword = adminPasswordInput.value.trim();
                 
@@ -587,7 +601,11 @@
                 window.location.href = 'index.html';
             });
             
-            // 특정 좌석 삭제 버튼 클릭 이벤트
+            /**
+             * 특정 좌석 삭제 기능 이벤트 핸들러
+             * 관리자 권한으로 지정된 성별과 좌석 번호를 Supabase에서 삭제합니다.
+             * 트랜잭션 처리로 데이터 일관성을 보장합니다.
+             */
             deleteSpecificSeatBtn.addEventListener('click', async function() {
                 const adminPassword = adminPasswordInput.value.trim();
                 const gender = deleteSeatGender.value;

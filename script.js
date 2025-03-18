@@ -1,29 +1,43 @@
-// 매일 정오 자동 초기화 설정 파일 불러오기
-import { setupDailyReset, calculateTimeUntilNextReset, performDailyReset } from './daily-reset.js';
+/**
+ * @fileoverview SeatMate - 사랑과 연애 좌석 배정 시스템 메인 스크립트
+ * 
+ * 이 파일은 좌석 배정 시스템의 클라이언트 측 로직을 관리합니다.
+ * 매일 정오(12:00 KST)에 좌석을 초기화하는 기능은 Supabase Edge Functions로 마이그레이션되었으며,
+ * 동시성 문제(여러 사용자가 같은 좌석을 선택하는 문제)는 PostgreSQL 트랜잭션을 통해 해결됩니다.
+ */
 
+// 좌석 초기화 기능은 Supabase Edge Function으로 마이그레이션되었습니다.
+
+/**
+ * SeatMate 프로젝트의 좌석 할당 클래스
+ * 사용자 성별에 따른 랜덤 좌석 선택 및 데이터베이스 동기화를 처리합니다.
+ */
 class SeatAssignment {
+    /**
+     * SeatAssignment 클래스 생성자
+     * 초기화 작업을 수행하고 이벤트 리스너를 설정합니다.
+     */
     constructor() {
-        // 강의실 좌석 배치 설정 - 40석, 4열로 변경
+        // 강의실 좌석 배치 구성 - 총 40석 (10행 x 4열)
         this.totalRows = 10;  // 행 수 (앞뒤 줄 수)
         this.totalCols = 4;   // 열 수 (좌우 좌석 수)
         this.selectedGender = null;
-        this.maleAssignments = new Set();
-        this.femaleAssignments = new Set();
+        this.maleAssignments = new Set();    // 남성 좌석 할당 집합
+        this.femaleAssignments = new Set(); // 여성 좌석 할당 집합
         this.userId = this.generateOrGetUserId();
         this.userSeat = this.loadUserSeat();
         this.lastResetTimestamp = localStorage.getItem('lastResetTimestamp') || '0';
         
-        // 좌석 요소 캐싱을 위한 맵 추가 - 성능 최적화
+        // 좌석 요소 DOM 참조 캐싱을 위한 맵 - 성능 최적화
         this.seatElements = new Map();
         
-        // 관리자 비밀번호 안전하게 관리 - Supabase에서 로드
+        // 관리자 비밀번호 관리 - Supabase에서 안전하게 로드
         this.adminPassword = null;
         this.loadAdminPassword();
         
-        // 매일 정오에 자동 초기화 설정
-        setupDailyReset(this);
+        // 중요: 매일 정오 초기화는 Supabase Edge Function과 스케줄링으로 처리됩니다. 스케줄링으로 처리됩니다.
 
-        // 초기화 및 설정
+        // UI 및 이벤트 초기화
         this.initializeElements();
         this.initializeEventListeners();
         this.createSeatGrid();
@@ -35,23 +49,32 @@ class SeatAssignment {
             this.loadAndDisplayUserSeat();
         });
         
-        // 실시간 업데이트 리스너 설정
+        // 실시간 업데이트 리스너 설정 - 다른 클라이언트의 변경사항 반영
         this.setupRealtimeListener();
         
-        // 개발자용 초기화 기능 설정
+        // 개발 및 테스트 모드 도구 설정
         this.setupDevTools();
     }
     
-    // 고유 사용자 ID 생성 또는 가져오기
+    /**
+     * 고유 사용자 ID를 생성하거나 저장된 ID를 가져오는 함수
+     * 로컬 스토리지에서 사용자 ID를 처리합니다.
+     * @returns {string} 사용자 고유 ID
+     */
     generateOrGetUserId() {
         let userId = localStorage.getItem('userId');
         if (!userId) {
+            // 랜덤 ID 생성 ('user_' 뒤에 랜덤 문자열 추가)
             userId = 'user_' + Math.random().toString(36).substring(2, 15);
             localStorage.setItem('userId', userId);
         }
         return userId;
     }
 
+    /**
+     * UI 요소 참조를 초기화하는 함수
+     * 필요한 DOM 요소를 참조하고 저장합니다.
+     */
     initializeElements() {
         this.seatNumberDisplay = document.getElementById('seatNumber');
         this.maleBtn = document.getElementById('maleBtn');
@@ -59,6 +82,10 @@ class SeatAssignment {
         this.seatGrid = document.querySelector('.seat-grid');
     }
 
+    /**
+     * 이벤트 리스너를 초기화하는 함수
+     * 성별 선택 버튼 클릭 이벤트를 처리합니다.
+     */
     initializeEventListeners() {
         this.maleBtn.addEventListener('click', () => this.selectGender('male'));
         this.femaleBtn.addEventListener('click', () => this.selectGender('female'));
@@ -748,7 +775,10 @@ class SeatAssignment {
     }
 }
 
-// Initialize the application
+/**
+ * 애플리케이션 초기화
+ * DOM 콘텐츠가 로드되면 SeatAssignment 클래스를 인스턴스화합니다.
+ */
 document.addEventListener('DOMContentLoaded', () => {
     new SeatAssignment();
 });
