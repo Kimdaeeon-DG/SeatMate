@@ -1,7 +1,7 @@
 class SeatAssignment {
     constructor() {
-        // 강의실 좌석 배치 설정 - 48석, 4열로 변경
-        this.totalRows = 12;  // 행 수 (앞뒤 줄 수)
+        // 강의실 좌석 배치 설정 - 40석, 4열로 변경
+        this.totalRows = 10;  // 행 수 (앞뒤 줄 수)
         this.totalCols = 4;   // 열 수 (좌우 좌석 수)
         this.selectedGender = null;
         this.maleAssignments = new Set();
