@@ -283,6 +283,19 @@ async function createTableIfNotExists() {
 // PostgreSQL 함수를 호출하여 좌석 할당하는 함수
 async function reserveSeat(seatNumber, userId, gender) {
   try {
+    // 좌석 번호가 숫자인지 확인
+    if (typeof seatNumber !== 'number') {
+      try {
+        seatNumber = parseInt(seatNumber, 10);
+        if (isNaN(seatNumber)) {
+          throw new Error('좌석 번호가 유효한 숫자가 아닙니다.');
+        }
+      } catch (parseError) {
+        console.error('좌석 번호 파싱 오류:', parseError);
+        return { success: false, message: '좌석 번호가 유효한 숫자가 아닙니다.' };
+      }
+    }
+
     // PostgreSQL 함수 호출
     const { data, error } = await supabase.rpc('reserve_seat', {
       p_seat_number: seatNumber,
@@ -293,6 +306,16 @@ async function reserveSeat(seatNumber, userId, gender) {
     if (error) {
       console.error('좌석 할당 함수 호출 오류:', error);
       return { success: false, message: `좌석 할당 중 오류가 발생했습니다: ${error.message}` };
+    }
+
+    // 데이터가 문자열인 경우 JSON으로 파싱 시도
+    if (typeof data === 'string') {
+      try {
+        return JSON.parse(data);
+      } catch (parseError) {
+        console.error('JSON 파싱 오류:', parseError);
+        return { success: false, message: `응답 데이터 처리 중 오류가 발생했습니다: ${parseError.message}` };
+      }
     }
 
     return data || { success: false, message: '알 수 없는 오류가 발생했습니다.' };
@@ -315,7 +338,41 @@ async function findAvailableSeat(gender) {
       return null;
     }
 
-    return data; // 사용 가능한 좌석 번호 또는 null
+    // 데이터가 문자열인 경우 처리 (JSON 문자열일 수 있음)
+    if (typeof data === 'string') {
+      try {
+        const parsedData = JSON.parse(data);
+        // JSON 객체에 seat_number 필드가 있는 경우
+        if (parsedData && parsedData.seat_number) {
+          return parseInt(parsedData.seat_number, 10);
+        }
+        // 단순 숫자 문자열인 경우
+        return parseInt(parsedData, 10);
+      } catch (parseError) {
+        // 파싱 실패 시 문자열을 직접 정수로 변환 시도
+        console.log('JSON 파싱 실패, 문자열을 직접 정수로 변환 시도:', data);
+        const seatNumber = parseInt(data, 10);
+        if (!isNaN(seatNumber)) {
+          return seatNumber;
+        }
+        console.error('좌석 번호 파싱 오류:', parseError);
+        return null;
+      }
+    }
+
+    // 데이터가 이미 숫자인 경우
+    if (typeof data === 'number') {
+      return data;
+    }
+
+    // 데이터가 객체인 경우 (seat_number 필드 확인)
+    if (data && typeof data === 'object' && 'seat_number' in data) {
+      return parseInt(data.seat_number, 10);
+    }
+
+    // 기타 경우 null 반환
+    console.log('처리할 수 없는 데이터 형식:', data);
+    return null;
   } catch (error) {
     console.error('사용 가능한 좌석 찾기 오류:', error);
     return null;

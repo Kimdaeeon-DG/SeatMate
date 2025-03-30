@@ -94,6 +94,7 @@ AS $$
 DECLARE
   v_table_name TEXT;
   v_seat_number INTEGER;
+  v_is_available BOOLEAN;
   v_total_rows INTEGER := 10; -- 총 행 수
   v_total_cols INTEGER := 4;  -- 총 열 수
 BEGIN
@@ -114,10 +115,10 @@ BEGIN
       FROM %I 
       WHERE seat_number = $1', v_table_name)
     USING v_seat_number
-    INTO v_seat_number;
+    INTO v_is_available;
 
     -- 좌석이 사용 가능하면 반환
-    IF v_seat_number THEN
+    IF v_is_available THEN
       RETURN v_seat_number;
     END IF;
   END LOOP;
