@@ -356,6 +356,9 @@
             // 관리자 비밀번호
             const correctPassword = 'love1030';
             
+            // 관리자 인증 상태 저장 변수
+            let isAdminAuthenticated = false;
+            
             // 비밀번호 확인 버튼 클릭 이벤트
             loginBtn.addEventListener('click', function() {
                 const password = loginPasswordInput.value.trim();
@@ -369,6 +372,9 @@
                     // 비밀번호 일치 - 관리자 페이지 표시
                     loginSection.classList.add('hidden');
                     adminContent.classList.remove('hidden');
+                    
+                    // 관리자 인증 상태 저장
+                    isAdminAuthenticated = true;
                     
                     // 좌석 그리드 생성 및 데이터 로드
                     createAdminSeatGrid();
@@ -522,19 +528,26 @@
             
             // 모든 좌석 초기화 버튼 클릭 이벤트
             resetAllSeatsBtn.addEventListener('click', async function() {
-                const adminPassword = adminPasswordInput.value.trim();
-                
-                if (!adminPassword) {
-                    showMessage('비밀번호를 입력해주세요.', 'error');
-                    return;
-                }
-                
-                try {
+                // 이미 인증된 상태인지 확인
+                if (!isAdminAuthenticated) {
+                    const adminPassword = adminPasswordInput.value.trim();
+                    
+                    if (!adminPassword) {
+                        showMessage('비밀번호를 입력해주세요.', 'error');
+                        return;
+                    }
+                    
                     // 관리자 비밀번호 확인
                     if (adminPassword !== correctPassword) {
                         showMessage('관리자 인증 실패: 비밀번호가 올바르지 않습니다.', 'error');
                         return;
                     }
+                    
+                    // 인증 성공 시 상태 저장
+                    isAdminAuthenticated = true;
+                }
+                
+                try {
                     
                     // SQL 함수를 통한 좌석 초기화 시도
                     let resetSuccess = false;
