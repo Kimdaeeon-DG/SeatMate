@@ -434,7 +434,8 @@ class SeatAssignment {
             // 8자리 학번이 입력되면 버튼 활성화
             this.maleBtn.disabled = false;
             this.femaleBtn.disabled = false;
-            this.seatNumberDisplay.textContent = '성별을 선택하면 좌석이 자동 배정됩니다';
+            // 메시지 표시하지 않음
+            this.seatNumberDisplay.textContent = '';
             this.seatNumberDisplay.style.color = '#333';
             
             // 학번을 로컬 스토리지에 저장 (입력 중에는 저장하지 않고, 좌석 할당 성공 후에 저장)
@@ -443,8 +444,9 @@ class SeatAssignment {
             // 8자리가 아니면 버튼 비활성화
             this.maleBtn.disabled = true;
             this.femaleBtn.disabled = true;
-            this.seatNumberDisplay.textContent = '학번은 8자리로 입력해주세요';
-            this.seatNumberDisplay.style.color = '#ff0000';
+            // 메시지 표시하지 않음
+            this.seatNumberDisplay.textContent = '';
+            this.seatNumberDisplay.style.color = '#333';
         }
     }
     
