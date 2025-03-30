@@ -27,9 +27,13 @@
         </div>
 
         <div class="controls">
+            <div class="student-id-container">
+                <label for="studentId">학번 입력</label>
+                <input type="text" id="studentId" placeholder="학번을 입력하세요" maxlength="10">
+            </div>
             <div class="button-group">
-                <button id="maleBtn" class="gender-btn male">남자</button>
-                <button id="femaleBtn" class="gender-btn female">여자</button>
+                <button id="maleBtn" class="gender-btn male" disabled>남자</button>
+                <button id="femaleBtn" class="gender-btn female" disabled>여자</button>
             </div>
             <div class="admin-link">
                 <a href="admin.html" class="admin-link-text">관리자 페이지</a>

@@ -393,8 +393,47 @@ async function createTableIfNotExists() {
   }
 }
 
-// PostgreSQL 함수를 호출하여 좌석 할당하는 함수
-async function reserveSeat(seatNumber, userId, gender) {
+// 사용 가능한 좌석 찾기 함수
+async function findAvailableSeat(gender) {
+  try {
+    const tableName = gender === 'male' ? 'male_seats' : 'female_seats';
+    
+    // 전체 좌석 수 (1부터 40까지)
+    const totalSeats = 40;
+    
+    // 현재 할당된 좌석 번호 가져오기
+    const { data, error } = await supabase
+      .from(tableName)
+      .select('seat_number');
+      
+    if (error) {
+      console.error('사용 가능한 좌석 검색 오류:', error);
+      return { error: error.message };
+    }
+    
+    // 할당된 좌석 번호 집합 생성
+    const assignedSeats = new Set();
+    if (data) {
+      data.forEach(seat => assignedSeats.add(seat.seat_number));
+    }
+    
+    // 사용 가능한 좌석 찾기
+    for (let i = 1; i <= totalSeats; i++) {
+      if (!assignedSeats.has(i)) {
+        return { data: i }; // 처음으로 발견한 사용 가능한 좌석 반환
+      }
+    }
+    
+    // 사용 가능한 좌석이 없음
+    return { data: null };
+  } catch (error) {
+    console.error('사용 가능한 좌석 검색 예외:', error);
+    return { error: error.message };
+  }
+}
+
+// 좌석 할당 함수 - SQL 함수 대신 기본 테이블 작업 사용
+async function reserveSeat(seatNumber, userId, gender, studentId) {
   try {
     // 좌석 번호가 숫자인지 확인
     if (typeof seatNumber !== 'number') {
@@ -409,29 +448,101 @@ async function reserveSeat(seatNumber, userId, gender) {
       }
     }
 
-    // PostgreSQL 함수 호출
-    const { data, error } = await supabase.rpc('reserve_seat', {
-      p_seat_number: seatNumber,
-      p_user_id: userId,
-      p_gender: gender
-    });
-
-    if (error) {
-      console.error('좌석 할당 함수 호출 오류:', error);
-      return { success: false, message: `좌석 할당 중 오류가 발생했습니다: ${error.message}` };
-    }
-
-    // 데이터가 문자열인 경우 JSON으로 파싱 시도
-    if (typeof data === 'string') {
-      try {
-        return JSON.parse(data);
-      } catch (parseError) {
-        console.error('JSON 파싱 오류:', parseError);
-        return { success: false, message: `응답 데이터 처리 중 오류가 발생했습니다: ${parseError.message}` };
+    // 학번이 없으면 빈 문자열로 설정
+    studentId = studentId || '';
+    
+    // 테이블 이름 결정
+    const tableName = gender === 'male' ? 'male_seats' : 'female_seats';
+    
+    // 1. 학번으로 이미 좌석이 할당되어 있는지 확인
+    if (studentId) {
+      // 남자 테이블 확인
+      const { data: maleData, error: maleError } = await supabase
+        .from('male_seats')
+        .select('seat_number')
+        .eq('student_id', studentId);
+        
+      if (maleError) {
+        console.error('학번 좌석 확인 오류 (male):', maleError);
+      } else if (maleData && maleData.length > 0) {
+        return { 
+          success: false, 
+          message: `이미 이 학번으로 ${maleData[0].seat_number}번 좌석이 할당되어 있습니다.`,
+          existingSeat: maleData[0].seat_number,
+          gender: 'male'
+        };
+      }
+      
+      // 여자 테이블 확인
+      const { data: femaleData, error: femaleError } = await supabase
+        .from('female_seats')
+        .select('seat_number')
+        .eq('student_id', studentId);
+        
+      if (femaleError) {
+        console.error('학번 좌석 확인 오류 (female):', femaleError);
+      } else if (femaleData && femaleData.length > 0) {
+        return { 
+          success: false, 
+          message: `이미 이 학번으로 ${femaleData[0].seat_number}번 좌석이 할당되어 있습니다.`,
+          existingSeat: femaleData[0].seat_number,
+          gender: 'female'
+        };
       }
     }
-
-    return data || { success: false, message: '알 수 없는 오류가 발생했습니다.' };
+    
+    // 2. 선택한 좌석이 이미 할당되어 있는지 확인
+    const { data: seatData, error: seatError } = await supabase
+      .from(tableName)
+      .select('*')
+      .eq('seat_number', seatNumber);
+      
+    if (seatError) {
+      console.error('좌석 할당 확인 오류:', seatError);
+      return { success: false, message: `좌석 할당 확인 중 오류가 발생했습니다: ${seatError.message}` };
+    }
+    
+    if (seatData && seatData.length > 0) {
+      // 이미 할당된 좌석이므로 다른 좌석 찾기
+      const { data: availableSeat, error: findError } = await findAvailableSeat(gender);
+      
+      if (findError || !availableSeat) {
+        return { 
+          success: false, 
+          message: `좌석 ${seatNumber}번은 이미 할당되어 있습니다. 사용 가능한 다른 좌석이 없습니다.` 
+        };
+      }
+      
+      return { 
+        success: false, 
+        message: `좌석 ${seatNumber}번은 이미 할당되어 있습니다. 대체 좌석 ${availableSeat}번을 사용해보세요.`,
+        alternative_seat: availableSeat
+      };
+    }
+    
+    // 3. 좌석 할당 실행
+    const { data: insertData, error: insertError } = await supabase
+      .from(tableName)
+      .insert([
+        { 
+          seat_number: seatNumber, 
+          user_id: userId,
+          student_id: studentId,
+          created_at: new Date().toISOString()
+        }
+      ]);
+      
+    if (insertError) {
+      console.error('좌석 할당 오류:', insertError);
+      return { success: false, message: `좌석 할당 중 오류가 발생했습니다: ${insertError.message}` };
+    }
+    
+    // 4. 성공 응답 반환
+    return { 
+      success: true, 
+      message: `좌석 ${seatNumber}번이 성공적으로 할당되었습니다.`,
+      seat_number: seatNumber
+    };
   } catch (error) {
     console.error('좌석 할당 오류:', error);
     return { success: false, message: `좌석 할당 중 예외가 발생했습니다: ${error.message}` };

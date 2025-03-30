@@ -164,13 +164,46 @@ h1 {
 
 .controls {
     margin-top: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.student-id-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    margin-bottom: 15px;
+    width: 100%;
+    max-width: 300px;
+}
+
+.student-id-container label {
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.student-id-container input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 5px;
+    font-size: 16px;
+    text-align: center;
+    transition: border-color 0.3s;
+}
+
+.student-id-container input:focus {
+    border-color: #007bff;
+    outline: none;
 }
 
 .button-group {
     display: flex;
     justify-content: center;
     gap: 10px;
-    margin-top: 20px;
+    margin-top: 10px;
 }
 
 .gender-btn, .select-btn {
@@ -213,6 +246,17 @@ h1 {
     transform: scale(1.05);
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
     border: 2px solid #333;
+}
+
+.gender-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.gender-btn:disabled:hover {
+    opacity: 0.6;
+    transform: none;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
 
 .gender-btn.male.active {
