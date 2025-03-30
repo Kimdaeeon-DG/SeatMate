@@ -148,8 +148,8 @@ class SeatAssignment {
 
     async getNextAvailableSeat(gender) {
         try {
-            // PostgreSQL 함수를 호출하여 사용 가능한 좌석 찾기
-            if (window.supabaseUtils) {
+            // PostgreSQL 함수를 호출하여 사용 가능한 좌석 찾기 (순차적 할당 방식)
+            if (window.supabaseUtils && window.supabaseUtils.findAvailableSeat) {
                 console.log(`PostgreSQL 함수를 통해 사용 가능한 좌석 찾기 시도 (${gender})`);
                 const seatNumber = await window.supabaseUtils.findAvailableSeat(gender);
                 
@@ -158,6 +158,8 @@ class SeatAssignment {
                     return seatNumber;
                 }
                 console.log('PostgreSQL 함수로 사용 가능한 좌석을 찾지 못함, 기본 방식으로 전환');
+            } else {
+                console.log('순차적 좌석 할당을 위한 findAvailableSeat 함수를 찾을 수 없습니다. 기본 방식으로 전환합니다.');
             }
             
             // 기본 방식: Supabase 쿼리 사용

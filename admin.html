@@ -7,6 +7,8 @@
     <link rel="stylesheet" href="styles.css">
     <!-- Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+    <!-- Supabase 설정 및 유틸리티 함수 -->
+    <script src="supabase-config.js"></script>
     <style>
         .admin-container {
             max-width: 800px;
@@ -534,23 +536,55 @@
                         return;
                     }
                     
-                    // 서버에서 모든 남성 좌석 삭제
-                    const { error: maleError } = await supabase
-                        .from('male_seats')
-                        .delete()
-                        .neq('seat_number', 0);
+                    // SQL 함수를 통한 좌석 초기화 시도
+                    let resetSuccess = false;
+                    
+                    // 방법 1: SQL 함수 사용
+                    if (typeof window.supabaseUtils !== 'undefined' && typeof window.supabaseUtils.resetAllSeatsViaSql === 'function') {
+                        console.log('🔧 SQL 함수를 통한 좌석 초기화 시도...');
+                        resetSuccess = await window.supabaseUtils.resetAllSeatsViaSql();
                         
-                    // 서버에서 모든 여성 좌석 삭제
-                    const { error: femaleError } = await supabase
-                        .from('female_seats')
-                        .delete()
-                        .neq('seat_number', 0);
-                        
-                    // 오류 확인
-                    if (maleError) throw maleError;
-                    if (femaleError) throw femaleError;
-                        
-                    // 남성 및 여성 테이블 오류는 이미 위에서 확인했으므로 추가 확인 불필요
+                        if (resetSuccess) {
+                            console.log('✅ SQL 함수를 통한 좌석 초기화 성공');
+                        } else {
+                            console.warn('⚠️ SQL 함수를 통한 좌석 초기화 실패, 대체 방법 시도 중...');
+                        }
+                    }
+                    
+                    // SQL 함수 실패 또는 사용 불가능한 경우 직접 삭제 시도
+                    if (!resetSuccess) {
+                        try {
+                            console.log('🔧 직접 삭제를 통한 좌석 초기화 시도...');
+                            
+                            // 서버에서 모든 남성 좌석 삭제
+                            const { error: maleError } = await supabase
+                                .from('male_seats')
+                                .delete()
+                                .neq('seat_number', 0);
+                                
+                            // 서버에서 모든 여성 좌석 삭제
+                            const { error: femaleError } = await supabase
+                                .from('female_seats')
+                                .delete()
+                                .neq('seat_number', 0);
+                                
+                            // 오류 확인
+                            if (maleError) {
+                                console.error('❌ 남성 좌석 삭제 오류:', maleError);
+                                throw maleError;
+                            }
+                            if (femaleError) {
+                                console.error('❌ 여성 좌석 삭제 오류:', femaleError);
+                                throw femaleError;
+                            }
+                            
+                            resetSuccess = true;
+                            console.log('✅ 직접 삭제를 통한 좌석 초기화 성공');
+                        } catch (deleteError) {
+                            console.error('❌ 직접 삭제 시도 중 오류:', deleteError);
+                            throw deleteError; // 오류 재발생하여 상위 catch에서 처리하도록 함
+                        }
+                    }
                     
                     // 성공 메시지 표시
                     showMessage('모든 사용자의 좌석이 초기화되었습니다.', 'success');
@@ -560,15 +594,45 @@
                     window.dispatchEvent(resetEvent);
                     
                     // 모든 클라이언트에 좌석 초기화 메시지 브로드캐스트
-                    if (typeof broadcastSeatsReset === 'function') {
-                        const broadcastResult = await broadcastSeatsReset();
-                        if (broadcastResult) {
-                            console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
+                    try {
+                        if (typeof window.supabaseUtils !== 'undefined' && typeof window.supabaseUtils.broadcastSeatsReset === 'function') {
+                            const broadcastResult = await window.supabaseUtils.broadcastSeatsReset();
+                            if (broadcastResult) {
+                                console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
+                            } else {
+                                console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
+                            }
+                        } else if (typeof broadcastSeatsReset === 'function') {
+                            const broadcastResult = await broadcastSeatsReset();
+                            if (broadcastResult) {
+                                console.log('🔄 모든 클라이언트에 좌석 초기화 메시지 전송 성공');
+                            } else {
+                                console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
+                            }
                         } else {
-                            console.warn('⚠️ 일부 클라이언트에 좌석 초기화 메시지가 전송되지 않았을 수 있습니다.');
+                            console.warn('⚠️ broadcastSeatsReset 함수를 찾을 수 없습니다. 실시간 업데이트가 일부 클라이언트에 전달되지 않을 수 있습니다.');
+                            // 대체 방법: 시스템 정보 테이블 직접 업데이트
+                            const resetTimestamp = new Date().toISOString();
+                            const resetId = 'reset_' + Math.random().toString(36).substring(2, 15);
+                            
+                            // 시스템 정보 테이블 업데이트
+                            const { error: updateError } = await supabase
+                                .from('system_info')
+                                .update({ 
+                                    reset_timestamp: resetTimestamp,
+                                    reset_id: resetId,
+                                    last_updated: new Date().toISOString()
+                                })
+                                .eq('id', 1);
+                                
+                            if (updateError) {
+                                console.error('시스템 정보 업데이트 오류:', updateError);
+                            } else {
+                                console.log('시스템 정보 업데이트 성공');
+                            }
                         }
-                    } else {
-                        console.warn('⚠️ broadcastSeatsReset 함수를 찾을 수 없습니다. 실시간 업데이트가 일부 클라이언트에 전달되지 않을 수 있습니다.');
+                    } catch (broadcastError) {
+                        console.error('좌석 초기화 브로드캐스트 중 오류:', broadcastError);
                     }
                     
                     // 좌석 데이터 다시 로드

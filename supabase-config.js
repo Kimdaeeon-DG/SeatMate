@@ -1,7 +1,9 @@
 // Supabase 설정
-const SUPABASE_URL = 'https://tgshommuzbalotwormis.supabase.co';
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InRnc2hvbW11emJhbG90d29ybWlzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDEwNzYwOTcsImV4cCI6MjA1NjY1MjA5N30.vzVHHXP9ez7DZQBe7FiApHnBPbc1tfDkk5G9jKjQKG8';
-
+// 주의: 새 Supabase 프로젝트를 생성한 후 아래 URL과 API 키를 업데이트해야 합니다.
+// 1. Supabase 대시보드에서 "Settings" > "API" 메뉴로 이동
+// 2. "Project URL"과 "anon public" 키를 복사하여 아래에 붙여넣기
+const SUPABASE_URL = 'https://buduqanujgjlflopiwxs.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1ZHVxYW51amdqbGZsb3Bpd3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMzMjg5ODIsImV4cCI6MjA1ODkwNDk4Mn0.0scnj2Bys4-sJPulPEYkP2VufauZ8zS4Fn0klDwHX5Y';
 // Supabase 클라이언트 초기화 (오류 처리 추가)
 let supabase;
 
@@ -143,6 +145,9 @@ async function setupRealtimeSubscription() {
   }
 }
 
+// 전역 Supabase 유틸리티 객체 생성
+window.supabaseUtils = window.supabaseUtils || {};
+
 // 좌석 초기화 브로드캠스트 함수 (모든 클라이언트에 알림)
 async function broadcastSeatsReset() {
   try {
@@ -167,23 +172,40 @@ async function broadcastSeatsReset() {
           .delete()
           .neq('seat_number', 0);
           
-        // 새 초기화 레코드 추가
-        const { error: insertError } = await supabase
+        // 초기화 정보 업데이트
+        const { error: updateError } = await supabase
           .from('system_info')
-          .insert([
-            {
-              id: 1, // 초기화 정보를 위한 ID
-              reset_timestamp: resetTimestamp,
-              reset_id: resetId
-            }
-          ])
-          .onConflict('id')
-          .merge(); // 이미 존재하는 경우 업데이트
+          .update({
+            reset_timestamp: resetTimestamp,
+            reset_id: resetId,
+            last_updated: new Date().toISOString()
+          })
+          .eq('id', 1);
           
-        if (insertError) {
-          console.error('❌ 초기화 타임스태프 저장 오류:', insertError);
+        // 업데이트 실패 시 insert with merge 시도
+        if (updateError) {
+          console.warn('⚠️ 초기화 정보 업데이트 실패, 삽입 시도 중...', updateError);
+          
+          const { error: insertError } = await supabase
+            .from('system_info')
+            .insert([
+              {
+                id: 1, // 초기화 정보를 위한 ID
+                reset_timestamp: resetTimestamp,
+                reset_id: resetId,
+                last_updated: new Date().toISOString()
+              }
+            ])
+            .onConflict('id')
+            .merge(); // 이미 존재하는 경우 업데이트
+          
+          if (insertError) {
+            console.error('❌ 초기화 정보 저장 오류:', insertError);
+          } else {
+            console.log('✅ 초기화 정보 저장 성공');
+          }
         } else {
-          console.log('✅ 초기화 타임스태프 저장 성공');
+          console.log('✅ 초기화 정보 업데이트 성공');
         }
       } catch (dbError) {
         console.error('❌ 초기화 타임스태프 저장 중 오류:', dbError);
@@ -210,6 +232,97 @@ async function broadcastSeatsReset() {
     return false;
   }
 }
+
+// 전역 객체에 함수 노출
+window.supabaseUtils = window.supabaseUtils || {};
+window.supabaseUtils.broadcastSeatsReset = broadcastSeatsReset;
+
+// SQL 함수를 통한 모든 좌석 초기화
+async function resetAllSeatsViaSql() {
+  try {
+    const { data, error } = await supabase.rpc('reset_all_seats');
+    
+    if (error) {
+      console.error('❌ SQL 함수를 통한 좌석 초기화 오류:', error);
+      return false;
+    }
+    
+    console.log('✅ SQL 함수를 통한 좌석 초기화 성공:', data);
+    return true;
+  } catch (error) {
+    console.error('❌ SQL 함수를 통한 좌석 초기화 중 예외 발생:', error);
+    return false;
+  }
+}
+
+// 전역 객체에 함수 노출
+window.supabaseUtils.resetAllSeatsViaSql = resetAllSeatsViaSql;
+
+// SQL 함수를 통한 사용 가능한 좌석 찾기
+async function findAvailableSeat(gender) {
+  try {
+    // PostgreSQL 함수 호출
+    const { data, error } = await supabase.rpc('find_available_seat', { p_gender: gender });
+    
+    if (error) {
+      console.error('❌ SQL 함수를 통한 사용 가능한 좌석 찾기 오류:', error);
+      return null;
+    }
+    
+    if (data && data.success) {
+      console.log('✅ SQL 함수를 통한 사용 가능한 좌석 찾기 성공:', data.seat_number);
+      return data.seat_number;
+    } else {
+      console.log('⚠️ 사용 가능한 좌석이 없습니다.');
+      return null;
+    }
+  } catch (error) {
+    console.error('❌ SQL 함수를 통한 사용 가능한 좌석 찾기 중 예외 발생:', error);
+    return null;
+  }
+}
+
+// 전역 객체에 함수 노출
+window.supabaseUtils.findAvailableSeat = findAvailableSeat;
+
+// 시스템 정보 테이블 초기화 함수
+async function initSystemInfoTable() {
+  try {
+    // system_info 테이블이 비어있는지 확인
+    const { data, error } = await supabase
+      .from('system_info')
+      .select('id')
+      .eq('id', 1)
+      .single();
+      
+    if (error && error.code === 'PGRST116') { // 결과가 없는 경우
+      // 초기 레코드 생성
+      const { error: insertError } = await supabase
+        .from('system_info')
+        .insert([{
+          id: 1,
+          reset_timestamp: new Date().toISOString(),
+          reset_id: 'initial_' + Math.random().toString(36).substring(2, 15),
+          last_updated: new Date().toISOString()
+        }]);
+        
+      if (insertError) {
+        console.error('❌ 시스템 정보 테이블 초기화 오류:', insertError);
+      } else {
+        console.log('✅ 시스템 정보 테이블 초기화 완료');
+      }
+    } else if (error) {
+      console.error('❌ 시스템 정보 테이블 확인 오류:', error);
+    } else {
+      console.log('✅ 시스템 정보 테이블이 이미 초기화되어 있습니다.');
+    }
+  } catch (error) {
+    console.error('❌ 시스템 정보 테이블 초기화 중 오류:', error);
+  }
+}
+
+// 페이지 로드 시 시스템 정보 테이블 초기화
+document.addEventListener('DOMContentLoaded', initSystemInfoTable);
 
 // 테이블 존재 여부 확인 및 생성
 async function createTableIfNotExists() {
