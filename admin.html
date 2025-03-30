@@ -277,11 +277,6 @@
         <!-- 관리자 페이지 컨텐츠 (초기에는 숨겨져 있음) -->
         <div id="admin-content" class="hidden">
             <div class="admin-form">
-                <div class="form-group">
-                    <label for="admin-password">관리자 비밀번호 (좌석 관리용)</label>
-                    <input type="password" id="admin-password" placeholder="비밀번호를 입력하세요">
-                </div>
-                
                 <div class="admin-actions">
                     <button id="reset-all-seats" class="admin-btn reset-btn">모든 좌석 초기화</button>
                     <button id="back-to-main" class="admin-btn back-btn">메인 페이지로 돌아가기</button>
@@ -342,7 +337,6 @@
             // 관리자 페이지 요소
             const resetAllSeatsBtn = document.getElementById('reset-all-seats');
             const backToMainBtn = document.getElementById('back-to-main');
-            const adminPasswordInput = document.getElementById('admin-password');
             const statusMessage = document.getElementById('status-message');
             const adminSeatGrid = document.getElementById('admin-seat-grid');
             const deleteSeatGender = document.getElementById('delete-seat-gender');
@@ -528,24 +522,7 @@
             
             // 모든 좌석 초기화 버튼 클릭 이벤트
             resetAllSeatsBtn.addEventListener('click', async function() {
-                // 이미 인증된 상태인지 확인
-                if (!isAdminAuthenticated) {
-                    const adminPassword = adminPasswordInput.value.trim();
-                    
-                    if (!adminPassword) {
-                        showMessage('비밀번호를 입력해주세요.', 'error');
-                        return;
-                    }
-                    
-                    // 관리자 비밀번호 확인
-                    if (adminPassword !== correctPassword) {
-                        showMessage('관리자 인증 실패: 비밀번호가 올바르지 않습니다.', 'error');
-                        return;
-                    }
-                    
-                    // 인증 성공 시 상태 저장
-                    isAdminAuthenticated = true;
-                }
+                // 관리자 페이지에 있다면 이미 인증된 상태이므로 추가 인증 없이 바로 진행
                 
                 try {
                     
