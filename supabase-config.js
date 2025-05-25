@@ -1,8 +1,9 @@
 // Supabase 설정
 // 주의: 새 Supabase 프로젝트를 생성한 후 아래 URL과 API 키를 업데이트해야 합니다.
-// Supabase 설정을 환경변수로 가져오기 (Netlify와 로컬 환경 모두 지원)
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'http://localhost:54321';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'local-development-key';
+// 1. Supabase 대시보드에서 "Settings" > "API" 메뉴로 이동
+// 2. "Project URL"과 "anon public" 키를 복사하여 아래에 붙여넣기
+const SUPABASE_URL = 'https://buduqanujgjlflopiwxs.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1ZHVxYW51amdqbGZsb3Bpd3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMzMjg5ODIsImV4cCI6MjA1ODkwNDk4Mn0.0scnj2Bys4-sJPulPEYkP2VufauZ8zS4Fn0klDwHX5Y';
 // Supabase 클라이언트 초기화 (오류 처리 추가)
 let supabase;
 
@@ -11,18 +12,7 @@ function initSupabase() {
   try {
     // 이미 정의된 객체인지 확인
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
-        auth: {
-          autoRefreshToken: true,
-          persistSession: true
-        },
-        global: {
-          headers: {
-            'Access-Control-Allow-Origin': '*',
-            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          },
-        },
-      });
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
       console.info('✅ Supabase가 초기화되었습니다.');
       return true;
     } else {
