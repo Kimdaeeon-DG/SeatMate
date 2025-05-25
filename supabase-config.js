@@ -1,8 +1,8 @@
 // Supabase 설정
 // 주의: 새 Supabase 프로젝트를 생성한 후 아래 URL과 API 키를 업데이트해야 합니다.
-// Supabase 설정을 환경변수로 가져오기
-const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'http://localhost:54321';
-const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || 'local-development-key';
+// Supabase 설정을 환경변수로 가져오기 (Netlify와 로컬 환경 모두 지원)
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || process.env.SUPABASE_URL || 'http://localhost:54321';
+const SUPABASE_KEY = process.env.VITE_SUPABASE_ANON_KEY || process.env.SUPABASE_ANON_KEY || 'local-development-key';
 // Supabase 클라이언트 초기화 (오류 처리 추가)
 let supabase;
 
