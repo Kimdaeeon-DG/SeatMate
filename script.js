@@ -1,7 +1,7 @@
 class SeatAssignment {
     constructor() {
-        // 강의실 좌석 배치 설정 - 40석, 4열로 변경
-        this.totalRows = 10;  // 행 수 (앞뒤 줄 수)
+        // 강의실 좌석 배치 설정 - 36석, 4열로 변경
+        this.totalRows = 9;  // 행 수 (앞뒤 줄 수)
         this.totalCols = 4;   // 열 수 (좌우 좌석 수)
         this.selectedGender = null;
         this.maleAssignments = new Set();
@@ -74,8 +74,10 @@ class SeatAssignment {
         
         // 행 우선으로 좌석 생성 (왼쪽에서 오른쪽으로, 위에서 아래로)
         let seatNumber = 1;
+        const spacerText = ['띄', '어', '앉', '기']; // 띄워앉기 글자 분리
         
         for (let i = 0; i < this.totalRows; i++) {
+            // 일반 좌석 행 생성
             for (let j = 0; j < this.totalCols; j++) {
                 const seat = document.createElement('div');
                 seat.className = 'seat';
@@ -97,6 +99,14 @@ class SeatAssignment {
                 
                 this.seatGrid.appendChild(seat);
                 seatNumber++;
+            }
+            
+            // 모든 숫자 행 다음에 띄워앉기 행 추가
+            for (let j = 0; j < this.totalCols; j++) {
+                const spacer = document.createElement('div');
+                spacer.className = 'seat spacer';
+                spacer.textContent = spacerText[j]; // 각 칸에 띄,어,앉,기 배치
+                this.seatGrid.appendChild(spacer);
             }
         }
     }
