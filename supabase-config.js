@@ -2,14 +2,9 @@
 // 주의: 새 Supabase 프로젝트를 생성한 후 아래 URL과 API 키를 업데이트해야 합니다.
 // 1. Supabase 대시보드에서 "Settings" > "API" 메뉴로 이동
 // 2. "Project URL"과 "anon public" 키를 복사하여 아래에 붙여넣기
-// Supabase 설정
-const SUPABASE_URL = process.env.SUPABASE_URL;
-const SUPABASE_KEY = process.env.SUPABASE_ANON_KEY;
-
-// 환경 변수가 없을 경우 에러 처리
-if (!SUPABASE_URL || !SUPABASE_KEY) {
-    console.error('환경 변수가 설정되지 않았습니다.');
-}
+// Supabase 설정 - Netlify 환경 변수를 직접 사용
+const SUPABASE_URL = 'https://buduqanujgjlflopiwxs.supabase.co';
+const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJ1ZHVxYW51amdqbGZsb3Bpd3hzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDMzMjg5ODIsImV4cCI6MjA1ODkwNDk4Mn0.0scnj2Bys4-sJPulPEYkP2VufauZ8zS4Fn0klDwHX5Y';
 // Supabase 클라이언트 초기화 (오류 처리 추가)
 let supabase;
 
