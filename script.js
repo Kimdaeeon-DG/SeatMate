@@ -101,12 +101,14 @@ class SeatAssignment {
                 seatNumber++;
             }
             
-            // 모든 숫자 행 다음에 띄워앉기 행 추가
-            for (let j = 0; j < this.totalCols; j++) {
-                const spacer = document.createElement('div');
-                spacer.className = 'seat spacer';
-                spacer.textContent = spacerText[j]; // 각 칸에 띄,어,앉,기 배치
-                this.seatGrid.appendChild(spacer);
+            // 마지막 행이 아닐 때만 띄워앉기 행 추가
+            if (i < this.totalRows - 1) {
+                for (let j = 0; j < this.totalCols; j++) {
+                    const spacer = document.createElement('div');
+                    spacer.className = 'seat spacer';
+                    spacer.textContent = spacerText[j]; // 각 칸에 띄,어,앉,기 배치
+                    this.seatGrid.appendChild(spacer);
+                }
             }
         }
     }
