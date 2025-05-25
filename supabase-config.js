@@ -11,7 +11,18 @@ function initSupabase() {
   try {
     // 이미 정의된 객체인지 확인
     if (typeof window.supabase !== 'undefined' && window.supabase.createClient) {
-      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY, {
+        auth: {
+          autoRefreshToken: true,
+          persistSession: true
+        },
+        global: {
+          headers: {
+            'Access-Control-Allow-Origin': '*',
+            'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+          },
+        },
+      });
       console.info('✅ Supabase가 초기화되었습니다.');
       return true;
     } else {
