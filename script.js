@@ -41,6 +41,22 @@ class SeatAssignment {
         
         // 개발자용 초기화 기능 설정
         this.setupDevTools();
+        
+        // 캐싱을 위한 상태 관리
+        this.state = {
+            selectedGender: null,
+            studentId: '',
+            userId: null,
+            selectedSeat: null,
+            maleAssignments: new Set(),
+            femaleAssignments: new Set(),
+            lastSyncTime: null
+        };
+        
+        this.isLoadingSeats = false;
+        
+        // 초기화 시 로컬스토리지에서 데이터 불러오기
+        this.loadFromLocalStorage();
     }
     
     // 고유 사용자 ID 생성 또는 가져오기
@@ -64,7 +80,7 @@ class SeatAssignment {
     initializeEventListeners() {
         this.maleBtn.addEventListener('click', () => this.selectGender('male'));
         this.femaleBtn.addEventListener('click', () => this.selectGender('female'));
-        this.studentIdInput.addEventListener('input', () => this.handleStudentIdInput());
+        this.studentIdInput.addEventListener('input', (event) => this.handleStudentIdInput(event));
     }
 
     createSeatGrid() {
@@ -94,10 +110,8 @@ class SeatAssignment {
                     seat.classList.add('column-4');
                 }
                 
-                // 좌석 요소를 캠싱 (성능 최적화)
-                this.seatElements.set(seatNumber, seat);
-                
                 this.seatGrid.appendChild(seat);
+                this.seatElements.set(seatNumber, seat);
                 seatNumber++;
             }
             
@@ -164,13 +178,12 @@ class SeatAssignment {
     animateSelection(gender) {
         const button = gender === 'male' ? this.maleBtn : this.femaleBtn;
         
-        // CSS 클래스를 사용하여 애니메이션 적용
-        button.classList.add('pulse-animation');
-        
-        // 애니메이션 완료 후 클래스 제거
-        setTimeout(() => {
+        const handleAnimationEnd = () => {
             button.classList.remove('pulse-animation');
-        }, 500);
+            button.removeEventListener('animationend', handleAnimationEnd);
+        };
+        button.addEventListener('animationend', handleAnimationEnd);
+        button.classList.add('pulse-animation');
     }
     
     // 좌석 애니메이션 효과 - 캠싱된 요소 활용 최적화 버전
@@ -437,35 +450,22 @@ class SeatAssignment {
     }
     
     // 학번 입력 처리 함수
-    handleStudentIdInput() {
-        const studentId = this.studentIdInput.value.trim();
-        this.studentId = studentId;
-        
-        // 학번이 8자리인지 확인
-        if (studentId.length === 8) {
-            // 8자리 학번이 입력되면 버튼 활성화
-            this.maleBtn.disabled = false;
-            this.femaleBtn.disabled = false;
-            // 메시지 표시하지 않음
-            this.seatNumberDisplay.textContent = '';
-            this.seatNumberDisplay.style.color = '#333';
-            
-            // 학번을 로컬 스토리지에 저장 (입력 중에는 저장하지 않고, 좌석 할당 성공 후에 저장)
-            // localStorage.setItem('studentId', studentId);
+    handleStudentIdInput(event) {
+        const input = event.target;
+        this.state.studentId = input.value;
+
+        // 유효성 검사
+        if (this.state.studentId.length === 8) {
+            this.enableGenderButtons();
         } else {
-            // 8자리가 아니면 버튼 비활성화
-            this.maleBtn.disabled = true;
-            this.femaleBtn.disabled = true;
-            // 메시지 표시하지 않음
-            this.seatNumberDisplay.textContent = '';
-            this.seatNumberDisplay.style.color = '#333';
+            this.disableGenderButtons();
         }
     }
     
     // 학번에 이미 할당된 좌석이 있는지 확인
     async checkStudentIdAssignment() {
         // 학번이 없으면 바로 중단
-        if (!this.studentId || this.studentId.length !== 8) {
+        if (!this.studentId || this.studentId.length !== 10) {
             return false; // 학번이 유효하지 않음
         }
         
@@ -570,6 +570,9 @@ class SeatAssignment {
     
     // Supabase에서 좌석 데이터 로드 (캠싱 요소 활용 최적화 버전)
     async loadSeatsFromSupabase() {
+        if (this.isLoadingSeats) return []; // 이미 로딩 중이면 무시
+        
+        this.isLoadingSeats = true;
         try {
             // 남성 좌석 데이터 로드
             const { data: maleData, error: maleError } = await supabase

@@ -40,6 +40,13 @@
             </div>
         </div>
     </div>
+    <!-- Netlify 환경 변수 주입 -->
+    <script>
+      window.ENV = {
+        SUPABASE_URL: '{{ SUPABASE_URL }}',
+        SUPABASE_ANON_KEY: '{{ SUPABASE_ANON_KEY }}'
+      };
+    </script>
     <script src="supabase-config.js"></script>
     <script src="script.js"></script>
 </body>
